@@ -1,8 +1,10 @@
 mod config;
+mod frame_pacer;
 mod frame_stats;
 mod game;
 
 use config::*;
+use frame_pacer::FramePacer;
 use frame_stats::FrameStats;
 use game::{Assets, Game, InputState, TimingMode};
 use macroquad::miniquad::conf::{AppleGfxApi, Platform};
@@ -28,16 +30,22 @@ async fn main() {
     let assets = Assets::load().await;
     let mut game = Game::new(&assets);
     let mut stats = FrameStats::new();
+    let frame_pacer = FramePacer::new();
     let mut hud_visible = false;
     let mut clear_only = false;
+    let mut manual_pacer_enabled = true;
 
     loop {
+        let frame_start = get_time();
         let dt = get_frame_time();
         if is_key_pressed(KeyCode::H) {
             hud_visible = !hud_visible;
         }
         if is_key_pressed(KeyCode::C) {
             clear_only = !clear_only;
+        }
+        if is_key_pressed(KeyCode::P) {
+            manual_pacer_enabled = !manual_pacer_enabled;
         }
         stats.record(dt, get_fps(), 1.0 / TARGET_REFRESH_HZ);
         let frame_marker = frame_marker(dt);
@@ -59,10 +67,14 @@ async fn main() {
                 game.background_mode(),
                 game.background_frame_step(),
                 clear_only,
+                manual_pacer_enabled,
             );
         }
 
         next_frame().await;
+        if manual_pacer_enabled {
+            frame_pacer.wait_until(frame_start, TARGET_REFRESH_HZ_U32);
+        }
     }
 }
 
@@ -111,13 +123,20 @@ fn draw_hud(
     background_mode: game::BackgroundMode,
     background_frame_step: f32,
     clear_only: bool,
+    manual_pacer_enabled: bool,
 ) {
     let snapshot = stats.snapshot;
     let scroll = if scroll_enabled { "ON" } else { "OFF" };
     let load = if clear_only { "CLEAR" } else { "FULL" };
+    let pace = if manual_pacer_enabled {
+        "MANUAL"
+    } else {
+        "AUTO"
+    };
     let text = format!(
-        "LOAD {}  MODE {}  DRAW {}  BGSTEP {:.0}px  fps {:>3}  last {:>5.2}ms  avg {:>5.2}ms  range {:>5.2}-{:>5.2}  sd {:>4.2}  slow {:>4.1}%  spikes {:>2}  BG {}",
+        "LOAD {}  PACE {}  MODE {}  DRAW {}  BGSTEP {:.0}px  fps {:>3}  last {:>5.2}ms  avg {:>5.2}ms  range {:>5.2}-{:>5.2}  sd {:>4.2}  slow {:>4.1}%  spikes {:>2}  BG {}",
         load,
+        pace,
         timing_mode.label(),
         background_mode.label(),
         background_frame_step,
