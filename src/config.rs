@@ -39,5 +39,7 @@ pub const FRAME_MARKER_MARGIN: f32 = 16.0;
 pub const FRAME_MARKER_GAP: f32 = 10.0;
 pub const PACER_SLEEP_THRESHOLD_SECS: f64 = 0.002;
 pub const PACER_SLEEP_MARGIN_SECS: f64 = 0.0005;
+pub const FRAME_LOG_ENV: &str = "RUST_STG_FRAME_LOG";
+pub const FRAME_LOG_INTERVAL_SECONDS: f64 = 5.0;
 
 pub const CLEAR_COLOR: Color = Color::new(0.02, 0.025, 0.035, 1.0);

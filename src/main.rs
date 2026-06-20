@@ -1,11 +1,13 @@
 mod config;
 mod cpu_stats;
+mod frame_log;
 mod frame_pacer;
 mod frame_stats;
 mod game;
 
 use config::*;
 use cpu_stats::CpuStats;
+use frame_log::FrameLog;
 use frame_pacer::FramePacer;
 use frame_stats::FrameStats;
 use game::{Assets, Game, InputState, TimingMode};
@@ -33,6 +35,7 @@ async fn main() {
     let mut game = Game::new(&assets);
     let mut stats = FrameStats::new();
     let mut cpu_stats = CpuStats::new(HUD_SAMPLE_SECONDS);
+    let mut frame_log = FrameLog::new(std::env::var_os(FRAME_LOG_ENV).is_some());
     let frame_pacer = FramePacer::new();
     let mut hud_visible = false;
     let mut clear_only = false;
@@ -50,9 +53,20 @@ async fn main() {
         if is_key_pressed(KeyCode::P) {
             manual_pacer_enabled = !manual_pacer_enabled;
         }
+        if is_key_pressed(KeyCode::L) {
+            frame_log.toggle();
+        }
         stats.record(dt, get_fps(), 1.0 / TARGET_REFRESH_HZ);
         cpu_stats.update(dt);
         let frame_marker = frame_marker(dt);
+        log_frame_marker(
+            &frame_log,
+            frame_marker,
+            dt,
+            get_fps(),
+            clear_only,
+            manual_pacer_enabled,
+        );
 
         clear_background(CLEAR_COLOR);
         if !clear_only {
@@ -73,12 +87,33 @@ async fn main() {
                 clear_only,
                 manual_pacer_enabled,
                 cpu_stats.percent,
+                frame_log.enabled(),
             );
         }
+        frame_log.summary(stats.snapshot, cpu_stats.percent);
 
         next_frame().await;
         if manual_pacer_enabled {
             frame_pacer.wait_until(frame_start, TARGET_REFRESH_HZ_U32);
+        }
+    }
+}
+
+fn log_frame_marker(
+    frame_log: &FrameLog,
+    frame_marker: FrameMarker,
+    dt: f32,
+    fps: i32,
+    clear_only: bool,
+    manual_pacer_enabled: bool,
+) {
+    match frame_marker {
+        FrameMarker::None => {}
+        FrameMarker::Slow => {
+            frame_log.event("slow", dt, fps, clear_only, manual_pacer_enabled);
+        }
+        FrameMarker::Fast => {
+            frame_log.event("fast", dt, fps, clear_only, manual_pacer_enabled);
         }
     }
 }
@@ -130,6 +165,7 @@ fn draw_hud(
     clear_only: bool,
     manual_pacer_enabled: bool,
     cpu_percent: f32,
+    frame_log_enabled: bool,
 ) {
     let snapshot = stats.snapshot;
     let scroll = if scroll_enabled { "ON" } else { "OFF" };
@@ -139,10 +175,12 @@ fn draw_hud(
     } else {
         "AUTO"
     };
+    let log = if frame_log_enabled { "ON" } else { "OFF" };
     let text = format!(
-        "LOAD {}  PACE {}  MODE {}  DRAW {}  BGSTEP {:.0}px  CPU {:>5.1}%  fps {:>3}/{:>5.1}  ms last {:>5.2} avg {:>5.2} p95 {:>5.2} p99 {:>5.2} range {:>5.2}-{:>5.2} sd {:>4.2} slow {:>4.1}% spk {:>2} BG {}",
+        "LOAD {}  PACE {}  LOG {}  MODE {}  DRAW {}  BGSTEP {:.0}px  CPU {:>5.1}%  fps {:>3}/{:>5.1}  ms last {:>5.2} avg {:>5.2} p95 {:>5.2} p99 {:>5.2} range {:>5.2}-{:>5.2} sd {:>4.2} slow {:>4.1}% spk {:>2} BG {}",
         load,
         pace,
+        log,
         timing_mode.label(),
         background_mode.label(),
         background_frame_step,
