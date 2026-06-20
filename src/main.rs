@@ -36,7 +36,7 @@ async fn main() {
     let frame_pacer = FramePacer::new();
     let mut hud_visible = false;
     let mut clear_only = false;
-    let mut manual_pacer_enabled = true;
+    let mut manual_pacer_enabled = false;
 
     loop {
         let frame_start = get_time();
