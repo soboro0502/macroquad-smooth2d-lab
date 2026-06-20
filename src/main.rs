@@ -24,7 +24,6 @@ async fn main() {
     let mut game = Game::new(&assets);
     let mut stats = FrameStats::new();
     let mut hud_visible = false;
-    let mut spike_flash = 0.0;
 
     loop {
         let dt = get_frame_time();
@@ -32,14 +31,14 @@ async fn main() {
             hud_visible = !hud_visible;
         }
         stats.record(dt, get_fps(), 1.0 / TARGET_REFRESH_HZ);
-        spike_flash = update_spike_flash(spike_flash, dt);
+        let spike_frame = is_spike_frame(dt);
 
         let input = InputState::read();
         game.update(input, dt);
 
         clear_background(CLEAR_COLOR);
         game.draw(&assets);
-        draw_spike_marker(spike_flash);
+        draw_spike_marker(spike_frame);
 
         if hud_visible {
             draw_hud(
@@ -56,17 +55,13 @@ async fn main() {
     }
 }
 
-fn update_spike_flash(spike_flash: f32, dt: f32) -> f32 {
+fn is_spike_frame(dt: f32) -> bool {
     let spike_dt = 1.0 / FRAME_SPIKE_HZ;
-    if dt >= spike_dt {
-        FRAME_SPIKE_FLASH_SECONDS
-    } else {
-        (spike_flash - dt).max(0.0)
-    }
+    dt >= spike_dt
 }
 
-fn draw_spike_marker(spike_flash: f32) {
-    if spike_flash <= 0.0 {
+fn draw_spike_marker(spike_frame: bool) {
+    if !spike_frame {
         return;
     }
 
