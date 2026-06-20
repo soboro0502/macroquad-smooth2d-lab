@@ -140,7 +140,7 @@ fn draw_hud(
         "AUTO"
     };
     let text = format!(
-        "LOAD {}  PACE {}  MODE {}  DRAW {}  BGSTEP {:.0}px  CPU {:>5.1}%  fps {:>3}  last {:>5.2}ms  avg {:>5.2}ms  range {:>5.2}-{:>5.2}  sd {:>4.2}  slow {:>4.1}%  spikes {:>2}  BG {}",
+        "LOAD {}  PACE {}  MODE {}  DRAW {}  BGSTEP {:.0}px  CPU {:>5.1}%  fps {:>3}/{:>5.1}  ms last {:>5.2} avg {:>5.2} p95 {:>5.2} p99 {:>5.2} range {:>5.2}-{:>5.2} sd {:>4.2} slow {:>4.1}% spk {:>2} BG {}",
         load,
         pace,
         timing_mode.label(),
@@ -148,8 +148,11 @@ fn draw_hud(
         background_frame_step,
         cpu_percent,
         snapshot.fps,
+        snapshot.avg_fps,
         snapshot.last_ms,
         snapshot.avg_ms,
+        snapshot.p95_ms,
+        snapshot.p99_ms,
         snapshot.min_ms,
         snapshot.max_ms,
         snapshot.stdev_ms,

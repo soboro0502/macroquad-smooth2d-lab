@@ -11,10 +11,13 @@ pub struct FrameStats {
 #[derive(Clone, Copy, Default)]
 pub struct FrameStatsSnapshot {
     pub fps: i32,
+    pub avg_fps: f32,
     pub last_ms: f32,
     pub avg_ms: f32,
     pub min_ms: f32,
     pub max_ms: f32,
+    pub p95_ms: f32,
+    pub p99_ms: f32,
     pub stdev_ms: f32,
     pub slow_percent: f32,
     pub spike_count: usize,
@@ -73,17 +76,36 @@ impl FrameStats {
             .iter()
             .filter(|sample| **sample > spike_limit)
             .count();
+        let mut sorted_samples = [0.0_f32; HUD_RING_SIZE];
+        sorted_samples[..self.len].copy_from_slice(samples);
+        sorted_samples[..self.len].sort_by(|a, b| a.total_cmp(b));
+        let p95 = percentile(&sorted_samples[..self.len], 0.95);
+        let p99 = percentile(&sorted_samples[..self.len], 0.99);
 
         FrameStatsSnapshot {
             fps,
+            avg_fps: 1.0 / avg.max(f32::EPSILON),
             last_ms: self.samples[(self.next + self.samples.len() - 1) % self.samples.len()]
                 * 1000.0,
             avg_ms: avg * 1000.0,
             min_ms: min * 1000.0,
             max_ms: max * 1000.0,
+            p95_ms: p95 * 1000.0,
+            p99_ms: p99 * 1000.0,
             stdev_ms: variance.sqrt() * 1000.0,
             slow_percent: slow_count as f32 / self.len as f32 * 100.0,
             spike_count,
         }
     }
+}
+
+fn percentile(sorted_samples: &[f32], percentile: f32) -> f32 {
+    if sorted_samples.is_empty() {
+        return 0.0;
+    }
+
+    let index = ((sorted_samples.len() - 1) as f32 * percentile)
+        .round()
+        .clamp(0.0, (sorted_samples.len() - 1) as f32) as usize;
+    sorted_samples[index]
 }
