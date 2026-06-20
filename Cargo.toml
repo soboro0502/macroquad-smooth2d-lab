@@ -4,6 +4,11 @@ version = "0.1.0"
 edition = "2021"
 authors = ["SOBORO"]
 license = "MIT OR Apache-2.0"
+description = "Frame pacing and smooth 2D motion lab for Macroquad games at 60Hz and 120Hz."
+repository = "https://github.com/soboro0502/macroquad-smooth2d-lab"
+readme = "README.md"
+keywords = ["macroquad", "frame-pacing", "gamedev", "2d", "jitter"]
+categories = ["game-development", "graphics"]
 
 [dependencies]
 libc = "0.2"

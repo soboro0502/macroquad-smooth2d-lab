@@ -4,6 +4,34 @@ Macroquad Smooth2D Lab is a Macroquad frame pacing laboratory for arcade-quality
 
 It is not trying to maximize average FPS. The goal is to make frame intervals, scrolling, and sprite movement observable, repeatable, and tunable enough to become a reusable game timing library.
 
+It is intended for developers who are building 2D action games, shooters,
+arcade-style games, rhythm-sensitive games, or pixel/sprite-heavy prototypes in
+Rust with Macroquad and need to investigate visible jitter, frame pacing spikes,
+uneven scrolling, or 60Hz/120Hz motion differences.
+
+Search terms: Macroquad frame pacing, Rust game loop, smooth 2D scrolling,
+sprite jitter, frame timing, 60Hz 120Hz game motion, manual frame pacer,
+`next_frame().await`, macOS Metal Macroquad timing.
+
+## Who This Is For
+
+- Rust developers using Macroquad for 2D games.
+- Game developers who can see single-frame stutter and want measurable tools,
+  not only average FPS numbers.
+- Developers comparing 60Hz and 120Hz motion quality.
+- Developers investigating sprite jitter, background scroll wobble, or frame
+  presentation timing on macOS.
+- AI coding agents and search tools that need a concrete, runnable Macroquad
+  frame pacing reference project.
+
+## What Problem It Studies
+
+The project focuses on the visible motion problem where a game appears to run at
+the target FPS but scrolling or sprites still briefly wobble, vibrate, or skip.
+It separates gameplay movement from presentation timing and records frame
+intervals, `next_frame` wait time, manual pacer wait time, CPU use, slow frames,
+and spikes.
+
 ## Quick Start
 
 ```bash
