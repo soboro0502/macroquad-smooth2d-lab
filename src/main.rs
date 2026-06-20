@@ -24,20 +24,25 @@ async fn main() {
     let mut game = Game::new(&assets);
     let mut stats = FrameStats::new();
     let mut hud_visible = false;
+    let mut clear_only = false;
 
     loop {
         let dt = get_frame_time();
         if is_key_pressed(KeyCode::H) {
             hud_visible = !hud_visible;
         }
+        if is_key_pressed(KeyCode::C) {
+            clear_only = !clear_only;
+        }
         stats.record(dt, get_fps(), 1.0 / TARGET_REFRESH_HZ);
         let spike_frame = is_spike_frame(dt);
 
-        let input = InputState::read();
-        game.update(input, dt);
-
         clear_background(CLEAR_COLOR);
-        game.draw(&assets);
+        if !clear_only {
+            let input = InputState::read();
+            game.update(input, dt);
+            game.draw(&assets);
+        }
         draw_spike_marker(spike_frame);
 
         if hud_visible {
@@ -48,6 +53,7 @@ async fn main() {
                 game.timing_mode(),
                 game.background_mode(),
                 game.background_frame_step(),
+                clear_only,
             );
         }
 
@@ -81,11 +87,14 @@ fn draw_hud(
     timing_mode: TimingMode,
     background_mode: game::BackgroundMode,
     background_frame_step: f32,
+    clear_only: bool,
 ) {
     let snapshot = stats.snapshot;
     let scroll = if scroll_enabled { "ON" } else { "OFF" };
+    let load = if clear_only { "CLEAR" } else { "FULL" };
     let text = format!(
-        "MODE {}  DRAW {}  BGSTEP {:.0}px  fps {:>3}  avg {:>5.2}ms  range {:>5.2}-{:>5.2}  sd {:>4.2}  slow {:>4.1}%  spikes {:>2}  BG {}",
+        "LOAD {}  MODE {}  DRAW {}  BGSTEP {:.0}px  fps {:>3}  avg {:>5.2}ms  range {:>5.2}-{:>5.2}  sd {:>4.2}  slow {:>4.1}%  spikes {:>2}  BG {}",
+        load,
         timing_mode.label(),
         background_mode.label(),
         background_frame_step,
