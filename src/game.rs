@@ -37,6 +37,7 @@ pub struct InputState {
     pub axis: Vec2,
     pub slow: bool,
     pub toggle_scroll: bool,
+    pub toggle_timing_mode: bool,
 }
 
 impl InputState {
@@ -63,6 +64,29 @@ impl InputState {
             axis,
             slow: is_key_down(KeyCode::LeftShift) || is_key_down(KeyCode::RightShift),
             toggle_scroll: is_key_pressed(KeyCode::Space),
+            toggle_timing_mode: is_key_pressed(KeyCode::Tab),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TimingMode {
+    DeltaTime,
+    FrameStep,
+}
+
+impl TimingMode {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::DeltaTime => "DT",
+            Self::FrameStep => "FRAME",
+        }
+    }
+
+    fn toggled(self) -> Self {
+        match self {
+            Self::DeltaTime => Self::FrameStep,
+            Self::FrameStep => Self::DeltaTime,
         }
     }
 }
@@ -70,6 +94,7 @@ impl InputState {
 pub struct Game {
     player: Player,
     background: ScrollingBackground,
+    timing_mode: TimingMode,
 }
 
 impl Game {
@@ -83,15 +108,19 @@ impl Game {
         Self {
             player: Player::new(start, frame_size),
             background: ScrollingBackground::new(assets.background.height()),
+            timing_mode: TimingMode::DeltaTime,
         }
     }
 
     pub fn update(&mut self, input: InputState, dt: f32) {
+        if input.toggle_timing_mode {
+            self.timing_mode = self.timing_mode.toggled();
+        }
         if input.toggle_scroll {
             self.background.toggle();
         }
-        self.background.update(dt);
-        self.player.update(input, dt);
+        self.background.update(self.timing_mode, dt);
+        self.player.update(input, self.timing_mode, dt);
     }
 
     pub fn draw(&self, assets: &Assets) {
@@ -101,6 +130,10 @@ impl Game {
 
     pub fn scroll_enabled(&self) -> bool {
         self.background.enabled
+    }
+
+    pub fn timing_mode(&self) -> TimingMode {
+        self.timing_mode
     }
 }
 
@@ -119,13 +152,22 @@ impl Player {
         }
     }
 
-    fn update(&mut self, input: InputState, dt: f32) {
+    fn update(&mut self, input: InputState, timing_mode: TimingMode, dt: f32) {
         let speed = if input.slow {
             PLAYER_SLOW_SPEED
         } else {
             PLAYER_SPEED
         };
-        self.position += input.axis * speed * dt;
+        let frame_step = if input.slow {
+            FRAME_STEP_PLAYER_SLOW_PIXELS
+        } else {
+            FRAME_STEP_PLAYER_PIXELS
+        };
+        let distance = match timing_mode {
+            TimingMode::DeltaTime => speed * dt,
+            TimingMode::FrameStep => frame_step,
+        };
+        self.position += input.axis * distance;
         self.position.x = self
             .position
             .x
@@ -178,9 +220,13 @@ impl ScrollingBackground {
         self.enabled = !self.enabled;
     }
 
-    fn update(&mut self, dt: f32) {
+    fn update(&mut self, timing_mode: TimingMode, dt: f32) {
         if self.enabled {
-            self.offset = (self.offset + BACKGROUND_SCROLL_SPEED * dt) % self.tile_height;
+            let distance = match timing_mode {
+                TimingMode::DeltaTime => BACKGROUND_SCROLL_SPEED * dt,
+                TimingMode::FrameStep => FRAME_STEP_BACKGROUND_PIXELS,
+            };
+            self.offset = (self.offset + distance) % self.tile_height;
         }
     }
 

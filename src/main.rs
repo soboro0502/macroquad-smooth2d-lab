@@ -4,7 +4,7 @@ mod game;
 
 use config::*;
 use frame_stats::FrameStats;
-use game::{Assets, Game, InputState};
+use game::{Assets, Game, InputState, TimingMode};
 use macroquad::prelude::*;
 
 fn window_conf() -> Conf {
@@ -31,7 +31,7 @@ async fn main() {
 
         clear_background(CLEAR_COLOR);
         game.draw(&assets);
-        draw_hud(&assets, &stats, game.scroll_enabled());
+        draw_hud(&assets, &stats, game.scroll_enabled(), game.timing_mode());
 
         stats.record(dt, get_fps(), 1.0 / TARGET_REFRESH_HZ);
 
@@ -39,11 +39,12 @@ async fn main() {
     }
 }
 
-fn draw_hud(assets: &Assets, stats: &FrameStats, scroll_enabled: bool) {
+fn draw_hud(assets: &Assets, stats: &FrameStats, scroll_enabled: bool, timing_mode: TimingMode) {
     let snapshot = stats.snapshot;
     let scroll = if scroll_enabled { "ON" } else { "OFF" };
     let text = format!(
-        "LOVE-LIKE VARIABLE DT  fps {:>3}  avg {:>5.2}ms  range {:>5.2}-{:>5.2}  sd {:>4.2}  slow {:>4.1}%  spikes {:>2}  BG {}",
+        "MODE {}  fps {:>3}  avg {:>5.2}ms  range {:>5.2}-{:>5.2}  sd {:>4.2}  slow {:>4.1}%  spikes {:>2}  BG {}",
+        timing_mode.label(),
         snapshot.fps,
         snapshot.avg_ms,
         snapshot.min_ms,
