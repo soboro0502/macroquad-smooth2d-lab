@@ -43,6 +43,49 @@ It separates gameplay movement from presentation timing and records frame
 intervals, `next_frame` wait time, manual pacer wait time, CPU use, slow frames,
 and spikes.
 
+## Current Scope
+
+This repository is currently a runnable reference application and investigation
+asset. It is not yet a finalized reusable library API.
+
+The current value is the measured frame pacing loop, the diagnostic HUD, the
+60Hz/120Hz profiles, and the notes about what changed visible motion quality.
+The internal module layout and public API may change without notice while the
+project moves toward a library.
+
+## Known Limitations
+
+- This is not a general-purpose game engine.
+- This is not a guaranteed stutter-free solution for every OS, GPU, monitor,
+  driver, refresh rate, or compositor.
+- The `smooth120` profile can still expose present-timing variance depending on
+  the machine and display path.
+- The current test scene is intentionally narrow: smooth scrolling, sprite
+  movement, frame diagnostics, and pacing behavior.
+- The project has been tuned mainly from visual inspection and local diagnostic
+  runs, not broad cross-platform hardware coverage.
+
+## Tested Environment
+
+The project has been tested mainly with:
+
+- Rust + Macroquad 0.4.15
+- macOS
+- Metal backend
+- fixed 1920x1080 window
+- `stable60` and `smooth120` profiles
+
+Other operating systems, GPUs, displays, and refresh rates should be treated as
+new test targets.
+
+## Roadmap
+
+- Split reusable timing and diagnostics pieces into a library API.
+- Add minimal examples for external projects.
+- Add clearer cross-platform notes for macOS, Windows, and Linux.
+- Add reproducible diagnostic report formats.
+- Keep reducing assumptions that are specific to the current test scene.
+
 ## Quick Start
 
 ```bash

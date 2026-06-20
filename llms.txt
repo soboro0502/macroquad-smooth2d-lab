@@ -26,6 +26,34 @@ game reports 60 FPS or 120 FPS:
 
 The project favors measured frame timing over average FPS.
 
+## Current Scope
+
+This repository is a runnable reference application and investigation asset. It
+is not yet a finalized reusable library API. The internal structure may change
+without notice while reusable timing and diagnostics modules are extracted.
+
+## Known Limitations
+
+- Not a general-purpose game engine.
+- Not a guaranteed stutter-free solution for every OS, GPU, monitor, driver, or
+  refresh rate.
+- The `smooth120` profile can still show present-timing variance depending on
+  the machine and display path.
+- The current scene is a narrow smooth scrolling and sprite movement test.
+
+## Tested Environment
+
+Tested mainly with Rust, Macroquad 0.4.15, macOS, Metal backend, a fixed
+1920x1080 window, and the `stable60` / `smooth120` profiles. Other platforms
+should be treated as new test targets.
+
+## Roadmap
+
+- Extract reusable timing and diagnostics modules into a library API.
+- Add minimal examples for external Macroquad projects.
+- Add cross-platform timing notes.
+- Add reproducible diagnostic report formats.
+
 ## Intended Users
 
 - Rust game developers using Macroquad
