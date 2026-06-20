@@ -99,14 +99,15 @@ pub struct Game {
 
 impl Game {
     pub fn new(assets: &Assets) -> Self {
-        let frame_size = player_frame_size(&assets.player);
+        let source_size = player_frame_size(&assets.player);
+        let draw_size = source_size * PLAYER_DRAW_SCALE;
         let start = vec2(
-            screen_width() * 0.5 - frame_size.x * 0.5,
-            screen_height() * 0.75 - frame_size.y * 0.5,
+            screen_width() * 0.5 - draw_size.x * 0.5,
+            screen_height() * 0.75 - draw_size.y * 0.5,
         );
 
         Self {
-            player: Player::new(start, frame_size),
+            player: Player::new(start, source_size),
             background: ScrollingBackground::new(assets.background.height()),
             timing_mode: TimingMode::FrameStep,
         }
@@ -139,15 +140,17 @@ impl Game {
 
 struct Player {
     position: Vec2,
-    frame_size: Vec2,
+    source_size: Vec2,
+    draw_size: Vec2,
     current_frame: usize,
 }
 
 impl Player {
-    fn new(position: Vec2, frame_size: Vec2) -> Self {
+    fn new(position: Vec2, source_size: Vec2) -> Self {
         Self {
             position,
-            frame_size,
+            source_size,
+            draw_size: source_size * PLAYER_DRAW_SCALE,
             current_frame: PLAYER_CENTER_FRAME,
         }
     }
@@ -171,20 +174,20 @@ impl Player {
         self.position.x = self
             .position
             .x
-            .clamp(0.0, screen_width() - self.frame_size.x);
+            .clamp(0.0, screen_width() - self.draw_size.x);
         self.position.y = self
             .position
             .y
-            .clamp(0.0, screen_height() - self.frame_size.y);
+            .clamp(0.0, screen_height() - self.draw_size.y);
         self.current_frame = target_frame_for_axis(input.axis.x);
     }
 
     fn draw(&self, texture: &Texture2D) {
         let source = Rect::new(
-            self.frame_size.x * self.current_frame as f32,
+            self.source_size.x * self.current_frame as f32,
             0.0,
-            self.frame_size.x,
-            self.frame_size.y,
+            self.source_size.x,
+            self.source_size.y,
         );
 
         draw_texture_ex(
@@ -194,7 +197,7 @@ impl Player {
             WHITE,
             DrawTextureParams {
                 source: Some(source),
-                dest_size: Some(self.frame_size),
+                dest_size: Some(self.draw_size),
                 ..Default::default()
             },
         );

@@ -12,6 +12,7 @@ pub const FRAME_STEP_BACKGROUND_PIXELS: f32 = 1.0;
 
 pub const PLAYER_FRAME_COUNT: usize = 5;
 pub const PLAYER_CENTER_FRAME: usize = 2;
+pub const PLAYER_DRAW_SCALE: f32 = 2.0;
 
 pub const ASSET_BG_TEST: &str = "assets/bg_test.png";
 pub const ASSET_PLAYER: &str = "assets/sprites/player_01_64.png";
