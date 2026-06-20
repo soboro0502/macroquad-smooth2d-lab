@@ -5,6 +5,7 @@ mod game;
 use config::*;
 use frame_stats::FrameStats;
 use game::{Assets, Game, InputState, TimingMode};
+use macroquad::miniquad::conf::{AppleGfxApi, Platform};
 use macroquad::prelude::*;
 
 fn window_conf() -> Conf {
@@ -14,6 +15,10 @@ fn window_conf() -> Conf {
         window_height: WINDOW_HEIGHT,
         high_dpi: false,
         window_resizable: false,
+        platform: Platform {
+            apple_gfx_api: AppleGfxApi::Metal,
+            ..Default::default()
+        },
         ..Default::default()
     }
 }
