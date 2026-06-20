@@ -86,4 +86,27 @@ impl FrameLog {
             cpu_percent,
         );
     }
+
+    pub fn final_summary(&self, snapshot: FrameStatsSnapshot, cpu_percent: f32) {
+        if !self.enabled {
+            return;
+        }
+
+        eprintln!(
+            "[frame-final t={:.3}s] fps={} avg_fps={:.1} last_ms={:.3} avg_ms={:.3} p95_ms={:.3} p99_ms={:.3} range_ms={:.3}-{:.3} sd_ms={:.3} slow_pct={:.1} spikes={} cpu={:.1}%",
+            get_time() - self.started_at,
+            snapshot.fps,
+            snapshot.avg_fps,
+            snapshot.last_ms,
+            snapshot.avg_ms,
+            snapshot.p95_ms,
+            snapshot.p99_ms,
+            snapshot.min_ms,
+            snapshot.max_ms,
+            snapshot.stdev_ms,
+            snapshot.slow_percent,
+            snapshot.spike_count,
+            cpu_percent,
+        );
+    }
 }

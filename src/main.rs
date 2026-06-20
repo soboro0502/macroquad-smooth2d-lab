@@ -31,16 +31,20 @@ fn window_conf() -> Conf {
 
 #[macroquad::main(window_conf)]
 async fn main() {
+    let app_options = AppOptions::from_args(std::env::args().skip(1));
     let assets = Assets::load().await;
     let mut game = Game::new(&assets);
     let mut stats = FrameStats::new();
     let mut cpu_stats = CpuStats::new(HUD_SAMPLE_SECONDS);
-    let mut frame_log = FrameLog::new(std::env::var_os(FRAME_LOG_ENV).is_some());
+    let mut frame_log = FrameLog::new(
+        app_options.diag_seconds.is_some() || std::env::var_os(FRAME_LOG_ENV).is_some(),
+    );
     let frame_pacer = FramePacer::new();
     let mut hud_visible = false;
-    let mut clear_only = false;
-    let mut manual_pacer_enabled = false;
+    let mut clear_only = app_options.clear_only;
+    let mut manual_pacer_enabled = app_options.manual_pacer_enabled;
     let mut previous_loop_time = get_time() - 1.0 / f64::from(TARGET_REFRESH_HZ_U32);
+    let started_at = get_time();
 
     loop {
         let frame_start = get_time();
@@ -95,10 +99,60 @@ async fn main() {
         }
         frame_log.summary(stats.snapshot, cpu_stats.percent);
 
+        if let Some(diag_seconds) = app_options.diag_seconds {
+            if get_time() - started_at >= diag_seconds {
+                frame_log.final_summary(stats.snapshot, cpu_stats.percent);
+                std::process::exit(0);
+            }
+        }
+
         next_frame().await;
         if manual_pacer_enabled {
             frame_pacer.wait_until(frame_start, TARGET_REFRESH_HZ_U32);
         }
+    }
+}
+
+#[derive(Clone, Copy)]
+struct AppOptions {
+    diag_seconds: Option<f64>,
+    clear_only: bool,
+    manual_pacer_enabled: bool,
+}
+
+impl AppOptions {
+    fn from_args(mut args: impl Iterator<Item = String>) -> Self {
+        let mut options = Self {
+            diag_seconds: None,
+            clear_only: false,
+            manual_pacer_enabled: DEFAULT_MANUAL_PACER_ENABLED,
+        };
+
+        while let Some(arg) = args.next() {
+            match arg.as_str() {
+                "--diag" => {
+                    options.diag_seconds = Some(DEFAULT_DIAG_SECONDS);
+                }
+                "--diag-seconds" => {
+                    options.diag_seconds = args
+                        .next()
+                        .and_then(|seconds| seconds.parse::<f64>().ok())
+                        .filter(|seconds| *seconds > 0.0);
+                }
+                "--diag-clear" => {
+                    options.clear_only = true;
+                }
+                "--diag-manual" => {
+                    options.manual_pacer_enabled = true;
+                }
+                "--diag-auto" => {
+                    options.manual_pacer_enabled = false;
+                }
+                _ => {}
+            }
+        }
+
+        options
     }
 }
 
