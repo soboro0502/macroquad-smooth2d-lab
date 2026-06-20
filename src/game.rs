@@ -20,8 +20,8 @@ impl Assets {
             .await
             .expect("failed to load HUD font");
 
-        background.set_filter(FilterMode::Linear);
-        player.set_filter(FilterMode::Linear);
+        background.set_filter(FilterMode::Nearest);
+        player.set_filter(FilterMode::Nearest);
         font.set_filter(FilterMode::Nearest);
 
         Self {
