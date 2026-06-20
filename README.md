@@ -64,3 +64,11 @@ Compare lower-CPU sleep pacing:
 The stable default intentionally uses high CPU. `std::thread::sleep` and `thread::yield_now` reduced or shifted CPU usage, but both allowed occasional slow frames during testing.
 
 For the detailed investigation notes, see [docs/frame_pacing_asset.md](docs/frame_pacing_asset.md).
+
+## Font
+
+The bundled HUD font is Silkscreen Regular from Google Fonts.
+
+- Source: https://github.com/google/fonts/tree/main/ofl/silkscreen
+- License: SIL Open Font License 1.1
+- Local license copy: [assets/fonts/Silkscreen-OFL.txt](assets/fonts/Silkscreen-OFL.txt)

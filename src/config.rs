@@ -35,7 +35,7 @@ pub const PROBE_SCROLL_LINE_THICKNESS: f32 = 4.0;
 pub const ASSET_BG_TEST: &str = "assets/bg_test.png";
 pub const ASSET_BG_PROBE: &str = "assets/bg_probe.png";
 pub const ASSET_PLAYER: &str = "assets/sprites/player_01_64.png";
-pub const ASSET_FONT: &str = "assets/fonts/x14y20pxScoreDozer.ttf";
+pub const ASSET_FONT: &str = "assets/fonts/Silkscreen-Regular.ttf";
 
 // HUD, logging, and diagnostics.
 pub const HUD_SAMPLE_SECONDS: f32 = 1.0;

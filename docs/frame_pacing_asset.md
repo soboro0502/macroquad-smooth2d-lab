@@ -74,3 +74,11 @@ time constraint を外して比較する場合:
 - `src/frame_stats.rs`: frame timing statistics
 - `src/frame_log.rs`: diagnostic output
 - `src/config.rs`: timing threshold / PASS criteria
+
+## フォント
+
+HUD フォントは Google Fonts の Silkscreen Regular に差し替えた。
+
+- source: https://github.com/google/fonts/tree/main/ofl/silkscreen
+- license: SIL Open Font License 1.1
+- local license: `assets/fonts/Silkscreen-OFL.txt`
