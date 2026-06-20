@@ -19,6 +19,13 @@ impl CpuStats {
         }
     }
 
+    pub fn reset(&mut self) {
+        self.last_wall_secs = get_time();
+        self.last_cpu_secs = process_cpu_secs();
+        self.publish_timer_secs = 0.0;
+        self.percent = 0.0;
+    }
+
     pub fn update(&mut self, dt: f32) {
         self.publish_timer_secs += dt;
         if self.publish_timer_secs < self.sample_interval_secs {

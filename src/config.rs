@@ -43,5 +43,6 @@ pub const PACER_SLEEP_MARGIN_SECS: f64 = 0.0010;
 pub const FRAME_LOG_ENV: &str = "RUST_STG_FRAME_LOG";
 pub const FRAME_LOG_INTERVAL_SECONDS: f64 = 5.0;
 pub const DEFAULT_DIAG_SECONDS: f64 = 12.0;
+pub const DEFAULT_DIAG_WARMUP_SECONDS: f64 = 2.0;
 
 pub const CLEAR_COLOR: Color = Color::new(0.02, 0.025, 0.035, 1.0);

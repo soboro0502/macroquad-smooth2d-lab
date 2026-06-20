@@ -31,6 +31,12 @@ impl FrameLog {
         self.enabled
     }
 
+    pub fn reset_clock(&mut self) {
+        let now = get_time();
+        self.started_at = now;
+        self.next_summary_at = now + FRAME_LOG_INTERVAL_SECONDS;
+    }
+
     pub fn event(
         &self,
         label: &'static str,

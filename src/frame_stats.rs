@@ -8,6 +8,10 @@ pub struct FrameStats {
     pub snapshot: FrameStatsSnapshot,
 }
 
+pub struct RunFrameStats {
+    samples: Vec<f32>,
+}
+
 #[derive(Clone, Copy, Default)]
 pub struct FrameStatsSnapshot {
     pub fps: i32,
@@ -23,6 +27,26 @@ pub struct FrameStatsSnapshot {
     pub spike_count: usize,
 }
 
+impl RunFrameStats {
+    pub fn new(capacity: usize) -> Self {
+        Self {
+            samples: Vec::with_capacity(capacity),
+        }
+    }
+
+    pub fn reset(&mut self) {
+        self.samples.clear();
+    }
+
+    pub fn record(&mut self, dt: f32) {
+        self.samples.push(dt);
+    }
+
+    pub fn snapshot(&self, fps: i32, target_dt: f32) -> FrameStatsSnapshot {
+        build_snapshot(&self.samples, fps, target_dt)
+    }
+}
+
 impl FrameStats {
     pub fn new() -> Self {
         Self {
@@ -32,6 +56,10 @@ impl FrameStats {
             publish_timer: 0.0,
             snapshot: FrameStatsSnapshot::default(),
         }
+    }
+
+    pub fn reset(&mut self) {
+        *self = Self::new();
     }
 
     pub fn record(&mut self, dt: f32, fps: i32, target_dt: f32) {
@@ -47,55 +75,56 @@ impl FrameStats {
     }
 
     fn build_snapshot(&self, fps: i32, target_dt: f32) -> FrameStatsSnapshot {
-        if self.len == 0 {
-            return FrameStatsSnapshot::default();
-        }
+        build_snapshot(&self.samples[..self.len], fps, target_dt)
+    }
+}
 
-        let samples = &self.samples[..self.len];
-        let sum: f32 = samples.iter().sum();
-        let avg = sum / self.len as f32;
-        let min = samples
-            .iter()
-            .fold(f32::INFINITY, |acc, sample| acc.min(*sample));
-        let max = samples.iter().fold(0.0_f32, |acc, sample| acc.max(*sample));
-        let variance = samples
-            .iter()
-            .map(|sample| {
-                let delta = sample - avg;
-                delta * delta
-            })
-            .sum::<f32>()
-            / self.len as f32;
-        let slow_limit = target_dt * 1.25;
-        let spike_limit = target_dt * 2.0;
-        let slow_count = samples
-            .iter()
-            .filter(|sample| **sample > slow_limit)
-            .count();
-        let spike_count = samples
-            .iter()
-            .filter(|sample| **sample > spike_limit)
-            .count();
-        let mut sorted_samples = [0.0_f32; HUD_RING_SIZE];
-        sorted_samples[..self.len].copy_from_slice(samples);
-        sorted_samples[..self.len].sort_by(|a, b| a.total_cmp(b));
-        let p95 = percentile(&sorted_samples[..self.len], 0.95);
-        let p99 = percentile(&sorted_samples[..self.len], 0.99);
+fn build_snapshot(samples: &[f32], fps: i32, target_dt: f32) -> FrameStatsSnapshot {
+    if samples.is_empty() {
+        return FrameStatsSnapshot::default();
+    }
 
-        FrameStatsSnapshot {
-            fps,
-            avg_fps: 1.0 / avg.max(f32::EPSILON),
-            last_ms: self.samples[(self.next + self.samples.len() - 1) % self.samples.len()]
-                * 1000.0,
-            avg_ms: avg * 1000.0,
-            min_ms: min * 1000.0,
-            max_ms: max * 1000.0,
-            p95_ms: p95 * 1000.0,
-            p99_ms: p99 * 1000.0,
-            stdev_ms: variance.sqrt() * 1000.0,
-            slow_percent: slow_count as f32 / self.len as f32 * 100.0,
-            spike_count,
-        }
+    let sum: f32 = samples.iter().sum();
+    let avg = sum / samples.len() as f32;
+    let min = samples
+        .iter()
+        .fold(f32::INFINITY, |acc, sample| acc.min(*sample));
+    let max = samples.iter().fold(0.0_f32, |acc, sample| acc.max(*sample));
+    let variance = samples
+        .iter()
+        .map(|sample| {
+            let delta = sample - avg;
+            delta * delta
+        })
+        .sum::<f32>()
+        / samples.len() as f32;
+    let slow_limit = target_dt * 1.25;
+    let spike_limit = target_dt * 2.0;
+    let slow_count = samples
+        .iter()
+        .filter(|sample| **sample > slow_limit)
+        .count();
+    let spike_count = samples
+        .iter()
+        .filter(|sample| **sample > spike_limit)
+        .count();
+    let mut sorted_samples = samples.to_vec();
+    sorted_samples.sort_by(|a, b| a.total_cmp(b));
+    let p95 = percentile(&sorted_samples, 0.95);
+    let p99 = percentile(&sorted_samples, 0.99);
+
+    FrameStatsSnapshot {
+        fps,
+        avg_fps: 1.0 / avg.max(f32::EPSILON),
+        last_ms: samples[samples.len() - 1] * 1000.0,
+        avg_ms: avg * 1000.0,
+        min_ms: min * 1000.0,
+        max_ms: max * 1000.0,
+        p95_ms: p95 * 1000.0,
+        p99_ms: p99 * 1000.0,
+        stdev_ms: variance.sqrt() * 1000.0,
+        slow_percent: slow_count as f32 / samples.len() as f32 * 100.0,
+        spike_count,
     }
 }
 

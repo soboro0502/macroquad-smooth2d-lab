@@ -9,7 +9,7 @@ use config::*;
 use cpu_stats::CpuStats;
 use frame_log::FrameLog;
 use frame_pacer::FramePacer;
-use frame_stats::FrameStats;
+use frame_stats::{FrameStats, RunFrameStats};
 use game::{Assets, Game, InputState, TimingMode};
 use macroquad::miniquad::conf::{AppleGfxApi, Platform};
 use macroquad::prelude::*;
@@ -35,6 +35,9 @@ async fn main() {
     let assets = Assets::load().await;
     let mut game = Game::new(&assets);
     let mut stats = FrameStats::new();
+    let mut run_stats = app_options
+        .diag_seconds
+        .map(|diag_seconds| RunFrameStats::new(diag_sample_capacity(diag_seconds)));
     let mut cpu_stats = CpuStats::new(HUD_SAMPLE_SECONDS);
     let mut frame_log = FrameLog::new(
         app_options.diag_seconds.is_some() || std::env::var_os(FRAME_LOG_ENV).is_some(),
@@ -44,13 +47,39 @@ async fn main() {
     let mut clear_only = app_options.clear_only;
     let mut manual_pacer_enabled = app_options.manual_pacer_enabled;
     let mut previous_loop_time = get_time() - 1.0 / f64::from(TARGET_REFRESH_HZ_U32);
-    let started_at = get_time();
+    let app_started_at = get_time();
+    let mut diag_measurement_started_at =
+        if app_options.diag_seconds.is_some() && app_options.diag_warmup_seconds <= 0.0 {
+            Some(app_started_at)
+        } else {
+            None
+        };
 
     loop {
         let frame_start = get_time();
         let measured_dt = (frame_start - previous_loop_time) as f32;
         previous_loop_time = frame_start;
         let dt = measured_dt.max(0.0);
+        let mut started_diag_measurement_this_frame = false;
+        if app_options.diag_seconds.is_some()
+            && diag_measurement_started_at.is_none()
+            && frame_start - app_started_at >= app_options.diag_warmup_seconds
+        {
+            stats.reset();
+            if let Some(run_stats) = run_stats.as_mut() {
+                run_stats.reset();
+            }
+            cpu_stats.reset();
+            frame_log.reset_clock();
+            diag_measurement_started_at = Some(frame_start);
+            started_diag_measurement_this_frame = true;
+            eprintln!(
+                "[frame-diag] measurement started after {:.1}s warmup",
+                app_options.diag_warmup_seconds,
+            );
+        }
+        let record_frame = app_options.diag_seconds.is_none()
+            || (diag_measurement_started_at.is_some() && !started_diag_measurement_this_frame);
         if is_key_pressed(KeyCode::H) {
             hud_visible = !hud_visible;
         }
@@ -63,17 +92,25 @@ async fn main() {
         if is_key_pressed(KeyCode::L) {
             frame_log.toggle();
         }
-        stats.record(dt, fps_from_dt(dt), 1.0 / TARGET_REFRESH_HZ);
-        cpu_stats.update(dt);
-        let frame_marker = frame_marker(dt);
-        log_frame_marker(
-            &frame_log,
-            frame_marker,
-            dt,
-            fps_from_dt(dt),
-            clear_only,
-            manual_pacer_enabled,
-        );
+        let frame_marker = if record_frame {
+            stats.record(dt, fps_from_dt(dt), 1.0 / TARGET_REFRESH_HZ);
+            if let Some(run_stats) = run_stats.as_mut() {
+                run_stats.record(dt);
+            }
+            cpu_stats.update(dt);
+            let frame_marker = frame_marker(dt);
+            log_frame_marker(
+                &frame_log,
+                frame_marker,
+                dt,
+                fps_from_dt(dt),
+                clear_only,
+                manual_pacer_enabled,
+            );
+            frame_marker
+        } else {
+            FrameMarker::None
+        };
 
         clear_background(CLEAR_COLOR);
         if !clear_only {
@@ -97,11 +134,19 @@ async fn main() {
                 frame_log.enabled(),
             );
         }
-        frame_log.summary(stats.snapshot, cpu_stats.percent);
+        if record_frame {
+            frame_log.summary(stats.snapshot, cpu_stats.percent);
+        }
 
-        if let Some(diag_seconds) = app_options.diag_seconds {
-            if get_time() - started_at >= diag_seconds {
-                frame_log.final_summary(stats.snapshot, cpu_stats.percent);
+        if let (Some(diag_seconds), Some(diag_started_at)) =
+            (app_options.diag_seconds, diag_measurement_started_at)
+        {
+            if get_time() - diag_started_at >= diag_seconds {
+                let final_snapshot = run_stats
+                    .as_ref()
+                    .map(|run_stats| run_stats.snapshot(fps_from_dt(dt), 1.0 / TARGET_REFRESH_HZ))
+                    .unwrap_or(stats.snapshot);
+                frame_log.final_summary(final_snapshot, cpu_stats.percent);
                 std::process::exit(0);
             }
         }
@@ -113,9 +158,14 @@ async fn main() {
     }
 }
 
+fn diag_sample_capacity(diag_seconds: f64) -> usize {
+    (diag_seconds * f64::from(TARGET_REFRESH_HZ_U32) * 1.25).ceil() as usize
+}
+
 #[derive(Clone, Copy)]
 struct AppOptions {
     diag_seconds: Option<f64>,
+    diag_warmup_seconds: f64,
     clear_only: bool,
     manual_pacer_enabled: bool,
 }
@@ -124,6 +174,7 @@ impl AppOptions {
     fn from_args(mut args: impl Iterator<Item = String>) -> Self {
         let mut options = Self {
             diag_seconds: None,
+            diag_warmup_seconds: DEFAULT_DIAG_WARMUP_SECONDS,
             clear_only: false,
             manual_pacer_enabled: DEFAULT_MANUAL_PACER_ENABLED,
         };
@@ -138,6 +189,16 @@ impl AppOptions {
                         .next()
                         .and_then(|seconds| seconds.parse::<f64>().ok())
                         .filter(|seconds| *seconds > 0.0);
+                }
+                "--diag-warmup-seconds" => {
+                    options.diag_warmup_seconds = args
+                        .next()
+                        .and_then(|seconds| seconds.parse::<f64>().ok())
+                        .filter(|seconds| *seconds >= 0.0)
+                        .unwrap_or(options.diag_warmup_seconds);
+                }
+                "--diag-no-warmup" => {
+                    options.diag_warmup_seconds = 0.0;
                 }
                 "--diag-clear" => {
                     options.clear_only = true;
