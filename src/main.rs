@@ -145,6 +145,7 @@ async fn main() {
                 game.background_last_delta(),
                 clear_only,
                 manual_pacer_enabled,
+                app_options.pacer_mode,
                 cpu_stats.percent,
                 frame_log.enabled(),
             );
@@ -175,7 +176,10 @@ async fn main() {
 
         next_frame().await;
         if manual_pacer_enabled {
-            frame_pacer.wait_until(frame_start, TARGET_REFRESH_HZ_U32);
+            match app_options.pacer_mode {
+                PacerMode::SleepSpin => frame_pacer.wait_until(frame_start, TARGET_REFRESH_HZ_U32),
+                PacerMode::Spin => frame_pacer.spin_until(frame_start, TARGET_REFRESH_HZ_U32),
+            }
         }
     }
 }
@@ -206,10 +210,26 @@ struct AppOptions {
     diag_warmup_seconds: f64,
     clear_only: bool,
     manual_pacer_enabled: bool,
+    pacer_mode: PacerMode,
     hud_visible: bool,
     timing_mode: TimingMode,
     background_mode: BackgroundMode,
     background_frame_step: f32,
+}
+
+#[derive(Clone, Copy)]
+enum PacerMode {
+    SleepSpin,
+    Spin,
+}
+
+impl PacerMode {
+    fn label(self) -> &'static str {
+        match self {
+            Self::SleepSpin => "SLEEP",
+            Self::Spin => "SPIN",
+        }
+    }
 }
 
 impl AppOptions {
@@ -219,6 +239,7 @@ impl AppOptions {
             diag_warmup_seconds: DEFAULT_DIAG_WARMUP_SECONDS,
             clear_only: false,
             manual_pacer_enabled: DEFAULT_MANUAL_PACER_ENABLED,
+            pacer_mode: PacerMode::SleepSpin,
             hud_visible: false,
             timing_mode: TimingMode::FrameStep,
             background_mode: BackgroundMode::Texture,
@@ -254,6 +275,13 @@ impl AppOptions {
                 }
                 "--diag-auto" => {
                     options.manual_pacer_enabled = false;
+                }
+                "--spin-pacer" => {
+                    options.manual_pacer_enabled = true;
+                    options.pacer_mode = PacerMode::Spin;
+                }
+                "--sleep-pacer" => {
+                    options.pacer_mode = PacerMode::SleepSpin;
                 }
                 "--hud" => {
                     options.hud_visible = true;
@@ -364,6 +392,7 @@ fn draw_hud(
     background_last_delta: f32,
     clear_only: bool,
     manual_pacer_enabled: bool,
+    pacer_mode: PacerMode,
     cpu_percent: f32,
     frame_log_enabled: bool,
 ) {
@@ -371,7 +400,7 @@ fn draw_hud(
     let scroll = if scroll_enabled { "ON" } else { "OFF" };
     let load = if clear_only { "CLEAR" } else { "FULL" };
     let pace = if manual_pacer_enabled {
-        "MANUAL"
+        pacer_mode.label()
     } else {
         "AUTO"
     };

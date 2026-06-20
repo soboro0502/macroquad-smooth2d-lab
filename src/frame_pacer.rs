@@ -28,4 +28,11 @@ impl FramePacer {
             }
         }
     }
+
+    pub fn spin_until(&self, frame_start: f64, hz: u32) {
+        let deadline = frame_start + 1.0 / f64::from(hz.max(1));
+        while get_time() < deadline {
+            std::hint::spin_loop();
+        }
+    }
 }
