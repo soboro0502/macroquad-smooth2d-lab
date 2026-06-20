@@ -146,7 +146,11 @@ async fn main() {
                     .as_ref()
                     .map(|run_stats| run_stats.snapshot(fps_from_dt(dt), 1.0 / TARGET_REFRESH_HZ))
                     .unwrap_or(stats.snapshot);
-                frame_log.final_summary(final_snapshot, cpu_stats.percent);
+                frame_log.final_summary(
+                    final_snapshot,
+                    cpu_stats.percent,
+                    diagnostic_verdict(final_snapshot),
+                );
                 std::process::exit(0);
             }
         }
@@ -160,6 +164,18 @@ async fn main() {
 
 fn diag_sample_capacity(diag_seconds: f64) -> usize {
     (diag_seconds * f64::from(TARGET_REFRESH_HZ_U32) * 1.25).ceil() as usize
+}
+
+fn diagnostic_verdict(snapshot: frame_stats::FrameStatsSnapshot) -> &'static str {
+    if snapshot.p99_ms <= DIAG_PASS_P99_MS
+        && snapshot.stdev_ms <= DIAG_PASS_STDEV_MS
+        && snapshot.slow_percent <= DIAG_PASS_SLOW_PERCENT
+        && snapshot.spike_count <= DIAG_PASS_SPIKES
+    {
+        "PASS"
+    } else {
+        "WARN"
+    }
 }
 
 #[derive(Clone, Copy)]

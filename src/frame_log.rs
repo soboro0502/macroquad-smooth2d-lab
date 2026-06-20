@@ -93,14 +93,20 @@ impl FrameLog {
         );
     }
 
-    pub fn final_summary(&self, snapshot: FrameStatsSnapshot, cpu_percent: f32) {
+    pub fn final_summary(
+        &self,
+        snapshot: FrameStatsSnapshot,
+        cpu_percent: f32,
+        verdict: &'static str,
+    ) {
         if !self.enabled {
             return;
         }
 
         eprintln!(
-            "[frame-final t={:.3}s] fps={} avg_fps={:.1} last_ms={:.3} avg_ms={:.3} p95_ms={:.3} p99_ms={:.3} range_ms={:.3}-{:.3} sd_ms={:.3} slow_pct={:.1} spikes={} cpu={:.1}%",
+            "[frame-final t={:.3}s] verdict={} fps={} avg_fps={:.1} last_ms={:.3} avg_ms={:.3} p95_ms={:.3} p99_ms={:.3} range_ms={:.3}-{:.3} sd_ms={:.3} slow_pct={:.1} spikes={} cpu={:.1}%",
             get_time() - self.started_at,
+            verdict,
             snapshot.fps,
             snapshot.avg_fps,
             snapshot.last_ms,

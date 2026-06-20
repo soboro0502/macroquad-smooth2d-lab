@@ -44,5 +44,9 @@ pub const FRAME_LOG_ENV: &str = "RUST_STG_FRAME_LOG";
 pub const FRAME_LOG_INTERVAL_SECONDS: f64 = 5.0;
 pub const DEFAULT_DIAG_SECONDS: f64 = 12.0;
 pub const DEFAULT_DIAG_WARMUP_SECONDS: f64 = 2.0;
+pub const DIAG_PASS_P99_MS: f32 = 9.0;
+pub const DIAG_PASS_STDEV_MS: f32 = 0.3;
+pub const DIAG_PASS_SLOW_PERCENT: f32 = 0.5;
+pub const DIAG_PASS_SPIKES: usize = 0;
 
 pub const CLEAR_COLOR: Color = Color::new(0.02, 0.025, 0.035, 1.0);
