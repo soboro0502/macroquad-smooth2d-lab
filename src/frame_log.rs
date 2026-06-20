@@ -1,7 +1,7 @@
 use macroquad::prelude::get_time;
 
 use crate::config::FRAME_LOG_INTERVAL_SECONDS;
-use crate::frame_stats::FrameStatsSnapshot;
+use crate::frame_stats::{FrameStatsSnapshot, ValueStatsSnapshot};
 
 pub struct FrameLog {
     enabled: bool,
@@ -119,6 +119,23 @@ impl FrameLog {
             snapshot.slow_percent,
             snapshot.spike_count,
             cpu_percent,
+        );
+    }
+
+    pub fn value_final_summary(&self, label: &'static str, snapshot: ValueStatsSnapshot) {
+        if !self.enabled {
+            return;
+        }
+
+        eprintln!(
+            "[value-final t={:.3}s] label={} last={:.3} avg={:.3} range={:.3}-{:.3} sd={:.3}",
+            get_time() - self.started_at,
+            label,
+            snapshot.last,
+            snapshot.avg,
+            snapshot.min,
+            snapshot.max,
+            snapshot.stdev,
         );
     }
 }

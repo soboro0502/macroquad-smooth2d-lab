@@ -9,7 +9,7 @@ use config::*;
 use cpu_stats::CpuStats;
 use frame_log::FrameLog;
 use frame_pacer::FramePacer;
-use frame_stats::{FrameStats, RunFrameStats};
+use frame_stats::{FrameStats, RunFrameStats, RunValueStats};
 use game::{Assets, BackgroundMode, Game, InputState, TimingMode};
 use macroquad::miniquad::conf::{AppleGfxApi, Platform};
 use macroquad::prelude::*;
@@ -41,6 +41,9 @@ async fn main() {
     let mut run_stats = app_options
         .diag_seconds
         .map(|diag_seconds| RunFrameStats::new(diag_sample_capacity(diag_seconds)));
+    let mut run_bg_delta_stats = app_options
+        .diag_seconds
+        .map(|diag_seconds| RunValueStats::new(diag_sample_capacity(diag_seconds)));
     let mut cpu_stats = CpuStats::new(HUD_SAMPLE_SECONDS);
     let mut frame_log = FrameLog::new(
         app_options.diag_seconds.is_some() || std::env::var_os(FRAME_LOG_ENV).is_some(),
@@ -71,6 +74,9 @@ async fn main() {
             stats.reset();
             if let Some(run_stats) = run_stats.as_mut() {
                 run_stats.reset();
+            }
+            if let Some(run_bg_delta_stats) = run_bg_delta_stats.as_mut() {
+                run_bg_delta_stats.reset();
             }
             cpu_stats.reset();
             frame_log.reset_clock();
@@ -121,6 +127,11 @@ async fn main() {
             game.update(input, dt);
             game.draw(&assets);
         }
+        if record_frame {
+            if let Some(run_bg_delta_stats) = run_bg_delta_stats.as_mut() {
+                run_bg_delta_stats.record(game.background_last_delta());
+            }
+        }
         draw_frame_marker(frame_marker);
 
         if hud_visible {
@@ -155,6 +166,9 @@ async fn main() {
                     cpu_stats.percent,
                     diagnostic_verdict(final_snapshot),
                 );
+                if let Some(run_bg_delta_stats) = run_bg_delta_stats.as_ref() {
+                    frame_log.value_final_summary("bg_delta", run_bg_delta_stats.snapshot());
+                }
                 std::process::exit(0);
             }
         }

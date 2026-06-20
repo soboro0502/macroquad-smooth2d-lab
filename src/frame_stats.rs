@@ -12,6 +12,10 @@ pub struct RunFrameStats {
     samples: Vec<f32>,
 }
 
+pub struct RunValueStats {
+    samples: Vec<f32>,
+}
+
 #[derive(Clone, Copy, Default)]
 pub struct FrameStatsSnapshot {
     pub fps: i32,
@@ -25,6 +29,15 @@ pub struct FrameStatsSnapshot {
     pub stdev_ms: f32,
     pub slow_percent: f32,
     pub spike_count: usize,
+}
+
+#[derive(Clone, Copy, Default)]
+pub struct ValueStatsSnapshot {
+    pub last: f32,
+    pub avg: f32,
+    pub min: f32,
+    pub max: f32,
+    pub stdev: f32,
 }
 
 impl RunFrameStats {
@@ -44,6 +57,26 @@ impl RunFrameStats {
 
     pub fn snapshot(&self, fps: i32, target_dt: f32) -> FrameStatsSnapshot {
         build_snapshot(&self.samples, fps, target_dt)
+    }
+}
+
+impl RunValueStats {
+    pub fn new(capacity: usize) -> Self {
+        Self {
+            samples: Vec::with_capacity(capacity),
+        }
+    }
+
+    pub fn reset(&mut self) {
+        self.samples.clear();
+    }
+
+    pub fn record(&mut self, value: f32) {
+        self.samples.push(value);
+    }
+
+    pub fn snapshot(&self) -> ValueStatsSnapshot {
+        build_value_snapshot(&self.samples)
     }
 }
 
@@ -76,6 +109,35 @@ impl FrameStats {
 
     fn build_snapshot(&self, fps: i32, target_dt: f32) -> FrameStatsSnapshot {
         build_snapshot(&self.samples[..self.len], fps, target_dt)
+    }
+}
+
+fn build_value_snapshot(samples: &[f32]) -> ValueStatsSnapshot {
+    if samples.is_empty() {
+        return ValueStatsSnapshot::default();
+    }
+
+    let sum: f32 = samples.iter().sum();
+    let avg = sum / samples.len() as f32;
+    let min = samples
+        .iter()
+        .fold(f32::INFINITY, |acc, sample| acc.min(*sample));
+    let max = samples.iter().fold(0.0_f32, |acc, sample| acc.max(*sample));
+    let variance = samples
+        .iter()
+        .map(|sample| {
+            let delta = sample - avg;
+            delta * delta
+        })
+        .sum::<f32>()
+        / samples.len() as f32;
+
+    ValueStatsSnapshot {
+        last: samples[samples.len() - 1],
+        avg,
+        min,
+        max,
+        stdev: variance.sqrt(),
     }
 }
 
