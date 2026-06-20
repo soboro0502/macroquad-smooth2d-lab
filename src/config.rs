@@ -31,5 +31,8 @@ pub const HUD_SAMPLE_SECONDS: f32 = 1.0;
 pub const HUD_RING_SIZE: usize = 240;
 pub const HUD_FONT_SIZE: u16 = 20;
 pub const TARGET_REFRESH_HZ: f32 = 120.0;
+pub const FRAME_WARN_HZ: f32 = 115.0;
+pub const FRAME_SPIKE_FLASH_SECONDS: f32 = 0.16;
+pub const FRAME_SPIKE_MARKER_SIZE: f32 = 28.0;
 
 pub const CLEAR_COLOR: Color = Color::new(0.02, 0.025, 0.035, 1.0);

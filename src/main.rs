@@ -24,18 +24,22 @@ async fn main() {
     let mut game = Game::new(&assets);
     let mut stats = FrameStats::new();
     let mut hud_visible = false;
+    let mut spike_flash = 0.0;
 
     loop {
         let dt = get_frame_time();
         if is_key_pressed(KeyCode::H) {
             hud_visible = !hud_visible;
         }
+        stats.record(dt, get_fps(), 1.0 / TARGET_REFRESH_HZ);
+        spike_flash = update_spike_flash(spike_flash, dt);
 
         let input = InputState::read();
         game.update(input, dt);
 
         clear_background(CLEAR_COLOR);
         game.draw(&assets);
+        draw_spike_marker(spike_flash);
 
         if hud_visible {
             draw_hud(
@@ -46,11 +50,33 @@ async fn main() {
                 game.background_mode(),
                 game.background_frame_step(),
             );
-            stats.record(dt, get_fps(), 1.0 / TARGET_REFRESH_HZ);
         }
 
         next_frame().await;
     }
+}
+
+fn update_spike_flash(spike_flash: f32, dt: f32) -> f32 {
+    let warn_dt = 1.0 / FRAME_WARN_HZ;
+    if dt >= warn_dt {
+        FRAME_SPIKE_FLASH_SECONDS
+    } else {
+        (spike_flash - dt).max(0.0)
+    }
+}
+
+fn draw_spike_marker(spike_flash: f32) {
+    if spike_flash <= 0.0 {
+        return;
+    }
+
+    draw_rectangle(
+        8.0,
+        8.0,
+        FRAME_SPIKE_MARKER_SIZE,
+        FRAME_SPIKE_MARKER_SIZE,
+        Color::new(1.0, 0.08, 0.08, 0.9),
+    );
 }
 
 fn draw_hud(
