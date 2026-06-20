@@ -4,6 +4,7 @@ use crate::config::*;
 
 pub struct Assets {
     pub background: Texture2D,
+    pub probe_background: Texture2D,
     pub player: Texture2D,
     pub font: Font,
 }
@@ -13,6 +14,9 @@ impl Assets {
         let background = load_texture(ASSET_BG_TEST)
             .await
             .expect("failed to load test background");
+        let probe_background = load_texture(ASSET_BG_PROBE)
+            .await
+            .expect("failed to load probe background");
         let player = load_texture(ASSET_PLAYER)
             .await
             .expect("failed to load player sprite sheet");
@@ -21,11 +25,13 @@ impl Assets {
             .expect("failed to load HUD font");
 
         background.set_filter(FilterMode::Nearest);
+        probe_background.set_filter(FilterMode::Nearest);
         player.set_filter(FilterMode::Nearest);
         font.set_filter(FilterMode::Nearest);
 
         Self {
             background,
+            probe_background,
             player,
             font,
         }
@@ -134,8 +140,11 @@ impl Game {
     }
 
     pub fn draw(&self, assets: &Assets) {
-        self.background
-            .draw(&assets.background, self.background_mode);
+        self.background.draw(
+            &assets.background,
+            &assets.probe_background,
+            self.background_mode,
+        );
         self.player.draw(&assets.player);
     }
 
@@ -155,6 +164,7 @@ impl Game {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum BackgroundMode {
     Texture,
+    ProbeTexture,
     Stripes,
 }
 
@@ -162,13 +172,15 @@ impl BackgroundMode {
     pub fn label(self) -> &'static str {
         match self {
             Self::Texture => "TEX",
-            Self::Stripes => "STRIPE",
+            Self::ProbeTexture => "PROBE",
+            Self::Stripes => "BANDS",
         }
     }
 
     fn toggled(self) -> Self {
         match self {
-            Self::Texture => Self::Stripes,
+            Self::Texture => Self::ProbeTexture,
+            Self::ProbeTexture => Self::Stripes,
             Self::Stripes => Self::Texture,
         }
     }
@@ -269,9 +281,10 @@ impl ScrollingBackground {
         }
     }
 
-    fn draw(&self, texture: &Texture2D, mode: BackgroundMode) {
+    fn draw(&self, texture: &Texture2D, probe_texture: &Texture2D, mode: BackgroundMode) {
         match mode {
             BackgroundMode::Texture => self.draw_texture_tiles(texture),
+            BackgroundMode::ProbeTexture => self.draw_texture_tiles(probe_texture),
             BackgroundMode::Stripes => self.draw_stripes(),
         }
     }

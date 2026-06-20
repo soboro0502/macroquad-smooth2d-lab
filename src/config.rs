@@ -19,6 +19,7 @@ pub const PROBE_BAND_GAP: f32 = 140.0;
 pub const PROBE_MARKER_HEIGHT: f32 = 12.0;
 
 pub const ASSET_BG_TEST: &str = "assets/bg_test.png";
+pub const ASSET_BG_PROBE: &str = "assets/bg_probe.png";
 pub const ASSET_PLAYER: &str = "assets/sprites/player_01_64.png";
 pub const ASSET_FONT: &str = "assets/fonts/x14y20pxScoreDozer.ttf";
 
