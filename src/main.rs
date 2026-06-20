@@ -4,6 +4,7 @@ mod frame_log;
 mod frame_pacer;
 mod frame_stats;
 mod game;
+mod platform_tuning;
 
 use config::*;
 use cpu_stats::CpuStats;
@@ -13,6 +14,7 @@ use frame_stats::{FrameStats, RunFrameStats, RunValueStats};
 use game::{Assets, BackgroundMode, Game, InputState, TimingMode};
 use macroquad::miniquad::conf::{AppleGfxApi, Platform};
 use macroquad::prelude::*;
+use platform_tuning::ThreadTuningResult;
 
 fn window_conf() -> Conf {
     Conf {
@@ -33,6 +35,10 @@ fn window_conf() -> Conf {
 async fn main() {
     let app_options = AppOptions::from_args(std::env::args().skip(1));
     let assets = Assets::load().await;
+    let thread_tuning = platform_tuning::set_latency_sensitive_thread();
+    if app_options.diag_seconds.is_some() || std::env::var_os(FRAME_LOG_ENV).is_some() {
+        log_thread_tuning(thread_tuning);
+    }
     let mut game = Game::new(&assets);
     game.set_timing_mode(app_options.timing_mode);
     game.set_background_mode(app_options.background_mode);
@@ -193,6 +199,16 @@ async fn main() {
 
 fn diag_sample_capacity(diag_seconds: f64) -> usize {
     (diag_seconds * f64::from(TARGET_REFRESH_HZ_U32) * 1.25).ceil() as usize
+}
+
+fn log_thread_tuning(result: ThreadTuningResult) {
+    match result {
+        ThreadTuningResult::Applied => eprintln!("[thread-tuning] qos=user-interactive"),
+        ThreadTuningResult::Failed(code) => {
+            eprintln!("[thread-tuning] qos=user-interactive failed code={code}");
+        }
+        ThreadTuningResult::Unsupported => eprintln!("[thread-tuning] unsupported"),
+    }
 }
 
 fn diagnostic_verdict(snapshot: frame_stats::FrameStatsSnapshot) -> &'static str {
