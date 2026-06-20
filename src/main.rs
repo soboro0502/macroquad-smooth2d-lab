@@ -147,6 +147,7 @@ async fn main() {
                 manual_pacer_enabled,
                 app_options.pacer_mode,
                 app_options.pacer_sleep_margin_secs,
+                app_options.pacer_sleep_threshold_secs,
                 cpu_stats.percent,
                 frame_log.enabled(),
             );
@@ -182,6 +183,7 @@ async fn main() {
                     frame_start,
                     TARGET_REFRESH_HZ_U32,
                     app_options.pacer_sleep_margin_secs,
+                    app_options.pacer_sleep_threshold_secs,
                 ),
                 PacerMode::Spin => frame_pacer.spin_until(frame_start, TARGET_REFRESH_HZ_U32),
             }
@@ -217,6 +219,7 @@ struct AppOptions {
     manual_pacer_enabled: bool,
     pacer_mode: PacerMode,
     pacer_sleep_margin_secs: f64,
+    pacer_sleep_threshold_secs: f64,
     hud_visible: bool,
     timing_mode: TimingMode,
     background_mode: BackgroundMode,
@@ -247,6 +250,7 @@ impl AppOptions {
             manual_pacer_enabled: DEFAULT_MANUAL_PACER_ENABLED,
             pacer_mode: PacerMode::SleepSpin,
             pacer_sleep_margin_secs: PACER_SLEEP_MARGIN_SECS,
+            pacer_sleep_threshold_secs: PACER_SLEEP_THRESHOLD_SECS,
             hud_visible: false,
             timing_mode: TimingMode::FrameStep,
             background_mode: BackgroundMode::Texture,
@@ -297,6 +301,14 @@ impl AppOptions {
                         .filter(|margin| *margin >= 0.0)
                         .map(|margin| margin / 1000.0)
                         .unwrap_or(options.pacer_sleep_margin_secs);
+                }
+                "--pacer-sleep-threshold-ms" => {
+                    options.pacer_sleep_threshold_secs = args
+                        .next()
+                        .and_then(|threshold| threshold.parse::<f64>().ok())
+                        .filter(|threshold| *threshold >= 0.0)
+                        .map(|threshold| threshold / 1000.0)
+                        .unwrap_or(options.pacer_sleep_threshold_secs);
                 }
                 "--hud" => {
                     options.hud_visible = true;
@@ -409,6 +421,7 @@ fn draw_hud(
     manual_pacer_enabled: bool,
     pacer_mode: PacerMode,
     pacer_sleep_margin_secs: f64,
+    pacer_sleep_threshold_secs: f64,
     cpu_percent: f32,
     frame_log_enabled: bool,
 ) {
@@ -423,11 +436,12 @@ fn draw_hud(
     let log = if frame_log_enabled { "ON" } else { "OFF" };
     let quality = diagnostic_verdict(snapshot);
     let text = format!(
-        "Q {}  LOAD {}  PACE {} M {:.2}  LOG {}  MODE {}  DRAW {}  BGSTEP {:.0}px BGD {:>5.2}  CPU {:>5.1}%  fps {:>3}/{:>5.1}  ms last {:>5.2} avg {:>5.2} p95 {:>5.2} p99 {:>5.2} range {:>5.2}-{:>5.2} sd {:>4.2} slow {:>4.1}% spk {:>2} BG {}",
+        "Q {}  LOAD {}  PACE {} M {:.2} T {:.2}  LOG {}  MODE {}  DRAW {}  BGSTEP {:.0}px BGD {:>5.2}  CPU {:>5.1}%  fps {:>3}/{:>5.1}  ms last {:>5.2} avg {:>5.2} p95 {:>5.2} p99 {:>5.2} range {:>5.2}-{:>5.2} sd {:>4.2} slow {:>4.1}% spk {:>2} BG {}",
         quality,
         load,
         pace,
         pacer_sleep_margin_secs * 1000.0,
+        pacer_sleep_threshold_secs * 1000.0,
         log,
         timing_mode.label(),
         background_mode.label(),
