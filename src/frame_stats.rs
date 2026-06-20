@@ -108,7 +108,24 @@ impl FrameStats {
     }
 
     fn build_snapshot(&self, fps: i32, target_dt: f32) -> FrameStatsSnapshot {
-        build_snapshot(&self.samples[..self.len], fps, target_dt)
+        let mut ordered_samples = [0.0; HUD_RING_SIZE];
+        let samples = self.copy_ordered_samples(&mut ordered_samples);
+        let mut sorted_samples = [0.0; HUD_RING_SIZE];
+        sorted_samples[..samples.len()].copy_from_slice(samples);
+        sorted_samples[..samples.len()].sort_by(|a, b| a.total_cmp(b));
+        build_snapshot_from_sorted(samples, &sorted_samples[..samples.len()], fps, target_dt)
+    }
+
+    fn copy_ordered_samples<'a>(&self, output: &'a mut [f32; HUD_RING_SIZE]) -> &'a [f32] {
+        if self.len < self.samples.len() {
+            output[..self.len].copy_from_slice(&self.samples[..self.len]);
+            return &output[..self.len];
+        }
+
+        let tail_len = self.samples.len() - self.next;
+        output[..tail_len].copy_from_slice(&self.samples[self.next..]);
+        output[tail_len..self.len].copy_from_slice(&self.samples[..self.next]);
+        &output[..self.len]
     }
 }
 
@@ -146,6 +163,21 @@ fn build_snapshot(samples: &[f32], fps: i32, target_dt: f32) -> FrameStatsSnapsh
         return FrameStatsSnapshot::default();
     }
 
+    let mut sorted_samples = samples.to_vec();
+    sorted_samples.sort_by(|a, b| a.total_cmp(b));
+    build_snapshot_from_sorted(samples, &sorted_samples, fps, target_dt)
+}
+
+fn build_snapshot_from_sorted(
+    samples: &[f32],
+    sorted_samples: &[f32],
+    fps: i32,
+    target_dt: f32,
+) -> FrameStatsSnapshot {
+    if samples.is_empty() {
+        return FrameStatsSnapshot::default();
+    }
+
     let sum: f32 = samples.iter().sum();
     let avg = sum / samples.len() as f32;
     let min = samples
@@ -170,10 +202,8 @@ fn build_snapshot(samples: &[f32], fps: i32, target_dt: f32) -> FrameStatsSnapsh
         .iter()
         .filter(|sample| **sample > spike_limit)
         .count();
-    let mut sorted_samples = samples.to_vec();
-    sorted_samples.sort_by(|a, b| a.total_cmp(b));
-    let p95 = percentile(&sorted_samples, 0.95);
-    let p99 = percentile(&sorted_samples, 0.99);
+    let p95 = percentile(sorted_samples, 0.95);
+    let p99 = percentile(sorted_samples, 0.99);
 
     FrameStatsSnapshot {
         fps,

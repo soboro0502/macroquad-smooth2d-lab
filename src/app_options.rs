@@ -3,11 +3,13 @@ use crate::game::{BackgroundMode, TimingMode};
 
 #[derive(Clone, Copy)]
 pub struct AppOptions {
+    pub target_refresh_hz: u32,
     pub diag_seconds: Option<f64>,
     pub diag_warmup_seconds: f64,
     pub clear_only: bool,
     pub manual_pacer_enabled: bool,
     pub pacer_mode: PacerMode,
+    pub pacer_spin_margin_secs: f64,
     pub pacer_sleep_margin_secs: f64,
     pub pacer_sleep_threshold_secs: f64,
     pub time_constraint_enabled: bool,
@@ -19,6 +21,7 @@ pub struct AppOptions {
 
 #[derive(Clone, Copy)]
 pub enum PacerMode {
+    MachSpin,
     SleepSpin,
     Spin,
 }
@@ -26,6 +29,7 @@ pub enum PacerMode {
 impl PacerMode {
     pub fn label(self) -> &'static str {
         match self {
+            Self::MachSpin => "MACH",
             Self::SleepSpin => "SLEEP",
             Self::Spin => "SPIN",
         }
@@ -35,11 +39,13 @@ impl PacerMode {
 impl AppOptions {
     pub fn from_args(mut args: impl Iterator<Item = String>) -> Self {
         let mut options = Self {
+            target_refresh_hz: DEFAULT_TARGET_REFRESH_HZ_U32,
             diag_seconds: None,
             diag_warmup_seconds: DEFAULT_DIAG_WARMUP_SECONDS,
             clear_only: false,
             manual_pacer_enabled: DEFAULT_MANUAL_PACER_ENABLED,
-            pacer_mode: PacerMode::Spin,
+            pacer_mode: PacerMode::MachSpin,
+            pacer_spin_margin_secs: PACER_BALANCED_SPIN_MARGIN_SECS,
             pacer_sleep_margin_secs: PACER_SLEEP_MARGIN_SECS,
             pacer_sleep_threshold_secs: PACER_SLEEP_THRESHOLD_SECS,
             time_constraint_enabled: DEFAULT_TIME_CONSTRAINT_ENABLED,
@@ -53,6 +59,13 @@ impl AppOptions {
             match arg.as_str() {
                 "--diag" => {
                     options.diag_seconds = Some(DEFAULT_DIAG_SECONDS);
+                }
+                "--target-hz" => {
+                    options.target_refresh_hz = args
+                        .next()
+                        .and_then(|hz| hz.parse::<u32>().ok())
+                        .filter(|hz| *hz > 0)
+                        .unwrap_or(options.target_refresh_hz);
                 }
                 "--diag-seconds" => {
                     options.diag_seconds = args
@@ -83,17 +96,38 @@ impl AppOptions {
                     options.manual_pacer_enabled = true;
                     options.pacer_mode = PacerMode::Spin;
                 }
+                "--mach-pacer" => {
+                    options.manual_pacer_enabled = true;
+                    options.pacer_mode = PacerMode::MachSpin;
+                }
+                "--balanced-pacer" => {
+                    options.manual_pacer_enabled = true;
+                    options.pacer_mode = PacerMode::MachSpin;
+                    options.pacer_spin_margin_secs = PACER_BALANCED_SPIN_MARGIN_SECS;
+                }
+                "--eco-pacer" => {
+                    options.manual_pacer_enabled = true;
+                    options.pacer_mode = PacerMode::MachSpin;
+                    options.pacer_spin_margin_secs = PACER_ECO_SPIN_MARGIN_SECS;
+                }
+                "--precision-pacer" => {
+                    options.manual_pacer_enabled = true;
+                    options.pacer_mode = PacerMode::MachSpin;
+                    options.pacer_spin_margin_secs = PACER_PRECISION_SPIN_MARGIN_SECS;
+                }
                 "--sleep-pacer" => {
                     options.manual_pacer_enabled = true;
                     options.pacer_mode = PacerMode::SleepSpin;
                 }
                 "--pacer-margin-ms" => {
-                    options.pacer_sleep_margin_secs = args
+                    let margin_secs = args
                         .next()
                         .and_then(|margin| margin.parse::<f64>().ok())
                         .filter(|margin| *margin >= 0.0)
                         .map(|margin| margin / 1000.0)
-                        .unwrap_or(options.pacer_sleep_margin_secs);
+                        .unwrap_or(options.pacer_spin_margin_secs);
+                    options.pacer_spin_margin_secs = margin_secs;
+                    options.pacer_sleep_margin_secs = margin_secs;
                 }
                 "--pacer-sleep-threshold-ms" => {
                     options.pacer_sleep_threshold_secs = args
@@ -113,9 +147,8 @@ impl AppOptions {
                     options.hud_visible = true;
                 }
                 "--visual-check" => {
-                    options.hud_visible = true;
                     options.timing_mode = TimingMode::FrameStep;
-                    options.background_mode = BackgroundMode::Stripes;
+                    options.background_mode = BackgroundMode::Texture;
                     options.background_frame_step = DEFAULT_BACKGROUND_STEP;
                 }
                 "--texture" => {

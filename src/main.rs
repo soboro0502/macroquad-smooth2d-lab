@@ -13,10 +13,10 @@ use config::*;
 use cpu_stats::CpuStats;
 use diagnostics::{
     diagnostic_verdict, draw_frame_marker, draw_hud, fps_from_dt, frame_marker, log_frame_marker,
-    warm_hud_font_cache, FrameMarker, HudState,
+    warm_hud_font_cache, FrameMarker, HudState, HudTextCache,
 };
 use frame_log::FrameLog;
-use frame_pacer::FramePacer;
+use frame_pacer::{FramePacer, PacerSample};
 use frame_stats::{FrameStats, RunFrameStats, RunValueStats};
 use game::{Assets, Game, InputState};
 use macroquad::miniquad::conf::{AppleGfxApi, Platform};
@@ -41,6 +41,7 @@ fn window_conf() -> Conf {
 #[macroquad::main(window_conf)]
 async fn main() {
     let app_options = AppOptions::from_args(std::env::args().skip(1));
+    let target_dt = 1.0 / app_options.target_refresh_hz as f32;
     let assets = Assets::load().await;
     let thread_tuning = platform_tuning::set_latency_sensitive_thread();
     if app_options.diag_seconds.is_some() || std::env::var_os(FRAME_LOG_ENV).is_some() {
@@ -48,7 +49,7 @@ async fn main() {
     }
     if app_options.time_constraint_enabled {
         let time_constraint_tuning = platform_tuning::set_time_constraint_thread(
-            1.0 / f64::from(TARGET_REFRESH_HZ_U32),
+            1.0 / f64::from(app_options.target_refresh_hz),
             TIME_CONSTRAINT_COMPUTATION_SECS,
             TIME_CONSTRAINT_CONSTRAINT_SECS,
         );
@@ -56,26 +57,59 @@ async fn main() {
             log_thread_tuning("time-constraint", time_constraint_tuning);
         }
     }
-    let mut game = Game::new(&assets);
+    let mut game = Game::new(&assets, app_options.target_refresh_hz);
     game.set_timing_mode(app_options.timing_mode);
     game.set_background_mode(app_options.background_mode);
     game.set_background_frame_step(app_options.background_frame_step);
     let mut stats = FrameStats::new();
-    let mut run_stats = app_options
-        .diag_seconds
-        .map(|diag_seconds| RunFrameStats::new(diag_sample_capacity(diag_seconds)));
-    let mut run_bg_delta_stats = app_options
-        .diag_seconds
-        .map(|diag_seconds| RunValueStats::new(diag_sample_capacity(diag_seconds)));
+    let mut run_stats = app_options.diag_seconds.map(|diag_seconds| {
+        RunFrameStats::new(diag_sample_capacity(
+            diag_seconds,
+            app_options.target_refresh_hz,
+        ))
+    });
+    let mut run_bg_delta_stats = app_options.diag_seconds.map(|diag_seconds| {
+        RunValueStats::new(diag_sample_capacity(
+            diag_seconds,
+            app_options.target_refresh_hz,
+        ))
+    });
+    let mut run_pacer_spin_stats = app_options.diag_seconds.map(|diag_seconds| {
+        RunValueStats::new(diag_sample_capacity(
+            diag_seconds,
+            app_options.target_refresh_hz,
+        ))
+    });
+    let mut run_pacer_wait_stats = app_options.diag_seconds.map(|diag_seconds| {
+        RunValueStats::new(diag_sample_capacity(
+            diag_seconds,
+            app_options.target_refresh_hz,
+        ))
+    });
+    let mut run_pacer_total_stats = app_options.diag_seconds.map(|diag_seconds| {
+        RunValueStats::new(diag_sample_capacity(
+            diag_seconds,
+            app_options.target_refresh_hz,
+        ))
+    });
+    let mut run_next_frame_stats = app_options.diag_seconds.map(|diag_seconds| {
+        RunValueStats::new(diag_sample_capacity(
+            diag_seconds,
+            app_options.target_refresh_hz,
+        ))
+    });
     let mut cpu_stats = CpuStats::new(HUD_SAMPLE_SECONDS);
     let mut frame_log = FrameLog::new(
         app_options.diag_seconds.is_some() || std::env::var_os(FRAME_LOG_ENV).is_some(),
     );
     let frame_pacer = FramePacer::new();
     let mut hud_visible = app_options.hud_visible;
+    let mut hud_cache = HudTextCache::new();
     let mut clear_only = app_options.clear_only;
     let mut manual_pacer_enabled = app_options.manual_pacer_enabled;
-    let mut previous_loop_time = get_time() - 1.0 / f64::from(TARGET_REFRESH_HZ_U32);
+    let mut last_pacer_sample = PacerSample::default();
+    let mut last_next_frame_secs = 0.0;
+    let mut previous_loop_time = get_time() - f64::from(target_dt);
     let app_started_at = get_time();
     let mut hud_font_cache_warmed = false;
     let mut diag_measurement_started_at =
@@ -102,7 +136,21 @@ async fn main() {
             if let Some(run_bg_delta_stats) = run_bg_delta_stats.as_mut() {
                 run_bg_delta_stats.reset();
             }
+            if let Some(run_pacer_spin_stats) = run_pacer_spin_stats.as_mut() {
+                run_pacer_spin_stats.reset();
+            }
+            if let Some(run_pacer_wait_stats) = run_pacer_wait_stats.as_mut() {
+                run_pacer_wait_stats.reset();
+            }
+            if let Some(run_pacer_total_stats) = run_pacer_total_stats.as_mut() {
+                run_pacer_total_stats.reset();
+            }
+            if let Some(run_next_frame_stats) = run_next_frame_stats.as_mut() {
+                run_next_frame_stats.reset();
+            }
             cpu_stats.reset();
+            last_pacer_sample = PacerSample::default();
+            last_next_frame_secs = 0.0;
             frame_log.reset_clock();
             diag_measurement_started_at = Some(frame_start);
             started_diag_measurement_this_frame = true;
@@ -111,8 +159,11 @@ async fn main() {
                 app_options.diag_warmup_seconds,
             );
         }
-        let record_frame = app_options.diag_seconds.is_none()
-            || (diag_measurement_started_at.is_some() && !started_diag_measurement_this_frame);
+        let measurement_enabled =
+            app_options.diag_seconds.is_some() || hud_visible || frame_log.enabled();
+        let record_frame = measurement_enabled
+            && (app_options.diag_seconds.is_none()
+                || (diag_measurement_started_at.is_some() && !started_diag_measurement_this_frame));
         if is_key_pressed(KeyCode::H) {
             hud_visible = !hud_visible;
         }
@@ -126,12 +177,12 @@ async fn main() {
             frame_log.toggle();
         }
         let frame_marker = if record_frame {
-            stats.record(dt, fps_from_dt(dt), 1.0 / TARGET_REFRESH_HZ);
+            stats.record(dt, fps_from_dt(dt), target_dt);
             if let Some(run_stats) = run_stats.as_mut() {
                 run_stats.record(dt);
             }
             cpu_stats.update(dt);
-            let frame_marker = frame_marker(dt);
+            let frame_marker = frame_marker(dt, target_dt);
             log_frame_marker(
                 &frame_log,
                 frame_marker,
@@ -159,6 +210,18 @@ async fn main() {
             if let Some(run_bg_delta_stats) = run_bg_delta_stats.as_mut() {
                 run_bg_delta_stats.record(game.background_last_delta());
             }
+            if let Some(run_pacer_spin_stats) = run_pacer_spin_stats.as_mut() {
+                run_pacer_spin_stats.record(last_pacer_sample.spin_ms());
+            }
+            if let Some(run_pacer_wait_stats) = run_pacer_wait_stats.as_mut() {
+                run_pacer_wait_stats.record(last_pacer_sample.os_wait_ms());
+            }
+            if let Some(run_pacer_total_stats) = run_pacer_total_stats.as_mut() {
+                run_pacer_total_stats.record(last_pacer_sample.total_wait_ms());
+            }
+            if let Some(run_next_frame_stats) = run_next_frame_stats.as_mut() {
+                run_next_frame_stats.record((last_next_frame_secs * 1000.0) as f32);
+            }
         }
         draw_frame_marker(frame_marker);
 
@@ -175,11 +238,17 @@ async fn main() {
                     clear_only,
                     manual_pacer_enabled,
                     pacer_mode: app_options.pacer_mode,
+                    pacer_spin_margin_secs: app_options.pacer_spin_margin_secs,
                     pacer_sleep_margin_secs: app_options.pacer_sleep_margin_secs,
                     pacer_sleep_threshold_secs: app_options.pacer_sleep_threshold_secs,
+                    pacer_sample: last_pacer_sample,
+                    next_frame_wait_secs: last_next_frame_secs,
+                    target_refresh_hz: app_options.target_refresh_hz,
                     cpu_percent: cpu_stats.percent,
                     frame_log_enabled: frame_log.enabled(),
                 },
+                &mut hud_cache,
+                dt,
             );
         }
         if record_frame {
@@ -192,37 +261,64 @@ async fn main() {
             if get_time() - diag_started_at >= diag_seconds {
                 let final_snapshot = run_stats
                     .as_ref()
-                    .map(|run_stats| run_stats.snapshot(fps_from_dt(dt), 1.0 / TARGET_REFRESH_HZ))
+                    .map(|run_stats| run_stats.snapshot(fps_from_dt(dt), target_dt))
                     .unwrap_or(stats.snapshot);
                 frame_log.final_summary(
                     final_snapshot,
                     cpu_stats.percent,
-                    diagnostic_verdict(final_snapshot),
+                    diagnostic_verdict(final_snapshot, target_dt),
                 );
                 if let Some(run_bg_delta_stats) = run_bg_delta_stats.as_ref() {
                     frame_log.value_final_summary("bg_delta", run_bg_delta_stats.snapshot());
+                }
+                if let Some(run_pacer_spin_stats) = run_pacer_spin_stats.as_ref() {
+                    frame_log.value_final_summary("pacer_spin_ms", run_pacer_spin_stats.snapshot());
+                }
+                if let Some(run_pacer_wait_stats) = run_pacer_wait_stats.as_ref() {
+                    frame_log
+                        .value_final_summary("pacer_os_wait_ms", run_pacer_wait_stats.snapshot());
+                }
+                if let Some(run_pacer_total_stats) = run_pacer_total_stats.as_ref() {
+                    frame_log.value_final_summary(
+                        "pacer_total_wait_ms",
+                        run_pacer_total_stats.snapshot(),
+                    );
+                }
+                if let Some(run_next_frame_stats) = run_next_frame_stats.as_ref() {
+                    frame_log.value_final_summary("next_frame_ms", run_next_frame_stats.snapshot());
                 }
                 std::process::exit(0);
             }
         }
 
+        let next_frame_started_at = get_time();
         next_frame().await;
-        if manual_pacer_enabled {
+        last_next_frame_secs = get_time() - next_frame_started_at;
+        last_pacer_sample = if manual_pacer_enabled {
             match app_options.pacer_mode {
+                PacerMode::MachSpin => frame_pacer.mach_wait_spin_until(
+                    frame_start,
+                    app_options.target_refresh_hz,
+                    app_options.pacer_spin_margin_secs,
+                ),
                 PacerMode::SleepSpin => frame_pacer.wait_until(
                     frame_start,
-                    TARGET_REFRESH_HZ_U32,
+                    app_options.target_refresh_hz,
                     app_options.pacer_sleep_margin_secs,
                     app_options.pacer_sleep_threshold_secs,
                 ),
-                PacerMode::Spin => frame_pacer.spin_until(frame_start, TARGET_REFRESH_HZ_U32),
+                PacerMode::Spin => {
+                    frame_pacer.spin_until(frame_start, app_options.target_refresh_hz)
+                }
             }
-        }
+        } else {
+            PacerSample::default()
+        };
     }
 }
 
-fn diag_sample_capacity(diag_seconds: f64) -> usize {
-    (diag_seconds * f64::from(TARGET_REFRESH_HZ_U32) * 1.25).ceil() as usize
+fn diag_sample_capacity(diag_seconds: f64, target_refresh_hz: u32) -> usize {
+    (diag_seconds * f64::from(target_refresh_hz) * 1.25).ceil() as usize
 }
 
 fn log_thread_tuning(label: &'static str, result: ThreadTuningResult) {

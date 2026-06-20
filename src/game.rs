@@ -120,10 +120,11 @@ pub struct Game {
     background: ScrollingBackground,
     timing_mode: TimingMode,
     background_mode: BackgroundMode,
+    target_refresh_hz: u32,
 }
 
 impl Game {
-    pub fn new(assets: &Assets) -> Self {
+    pub fn new(assets: &Assets, target_refresh_hz: u32) -> Self {
         let source_size = player_frame_size(&assets.player);
         let draw_size = source_size * PLAYER_DRAW_SCALE;
         let start = vec2(
@@ -133,11 +134,10 @@ impl Game {
 
         Self {
             player: Player::new(start, source_size),
-            background: ScrollingBackground::new(
-                assets.background.height() * BACKGROUND_DRAW_SCALE,
-            ),
+            background: ScrollingBackground::new(),
             timing_mode: TimingMode::FrameStep,
             background_mode: BackgroundMode::Texture,
+            target_refresh_hz,
         }
     }
 
@@ -166,8 +166,9 @@ impl Game {
         if let Some(frame_step) = input.selected_background_step {
             self.background.set_frame_step(frame_step);
         }
-        self.background.update(self.timing_mode, dt);
-        self.player.update(input, self.timing_mode, dt);
+        let frame_scale = frame_step_scale(self.target_refresh_hz);
+        self.background.update(self.timing_mode, dt, frame_scale);
+        self.player.update(input, self.timing_mode, dt, frame_scale);
     }
 
     pub fn draw(&self, assets: &Assets) {
@@ -230,6 +231,7 @@ struct Player {
     source_size: Vec2,
     draw_size: Vec2,
     current_frame: usize,
+    lean_frame_elapsed: f32,
 }
 
 impl Player {
@@ -239,10 +241,11 @@ impl Player {
             source_size,
             draw_size: source_size * PLAYER_DRAW_SCALE,
             current_frame: PLAYER_CENTER_FRAME,
+            lean_frame_elapsed: 0.0,
         }
     }
 
-    fn update(&mut self, input: InputState, timing_mode: TimingMode, dt: f32) {
+    fn update(&mut self, input: InputState, timing_mode: TimingMode, dt: f32, frame_scale: f32) {
         let speed = if input.slow {
             PLAYER_SLOW_SPEED
         } else {
@@ -255,7 +258,7 @@ impl Player {
         };
         let distance = match timing_mode {
             TimingMode::DeltaTime => speed * dt,
-            TimingMode::FrameStep => frame_step,
+            TimingMode::FrameStep => frame_step * frame_scale,
         };
         self.position += input.axis * distance;
         self.position.x = self
@@ -266,7 +269,26 @@ impl Player {
             .position
             .y
             .clamp(0.0, screen_height() - self.draw_size.y);
-        self.current_frame = target_frame_for_axis(input.axis.x);
+        self.update_lean_frame(target_frame_for_axis(input.axis.x), dt);
+    }
+
+    fn update_lean_frame(&mut self, target_frame: usize, dt: f32) {
+        if target_frame == self.current_frame {
+            self.lean_frame_elapsed = 0.0;
+            return;
+        }
+
+        self.lean_frame_elapsed += dt;
+        while self.lean_frame_elapsed >= PLAYER_LEAN_FRAME_SECONDS
+            && self.current_frame != target_frame
+        {
+            self.lean_frame_elapsed -= PLAYER_LEAN_FRAME_SECONDS;
+            self.current_frame = if self.current_frame < target_frame {
+                self.current_frame + 1
+            } else {
+                self.current_frame - 1
+            };
+        }
     }
 
     fn draw(&self, texture: &Texture2D) {
@@ -294,17 +316,15 @@ impl Player {
 struct ScrollingBackground {
     offset: f32,
     last_delta: f32,
-    tile_height: f32,
     enabled: bool,
     frame_step: f32,
 }
 
 impl ScrollingBackground {
-    fn new(tile_height: f32) -> Self {
+    fn new() -> Self {
         Self {
             offset: 0.0,
             last_delta: 0.0,
-            tile_height,
             enabled: true,
             frame_step: DEFAULT_BACKGROUND_STEP,
         }
@@ -326,12 +346,12 @@ impl ScrollingBackground {
         self.last_delta
     }
 
-    fn update(&mut self, timing_mode: TimingMode, dt: f32) {
+    fn update(&mut self, timing_mode: TimingMode, dt: f32, frame_scale: f32) {
         self.last_delta = 0.0;
         if self.enabled {
             let distance = match timing_mode {
                 TimingMode::DeltaTime => BACKGROUND_SCROLL_SPEED * dt,
-                TimingMode::FrameStep => self.frame_step,
+                TimingMode::FrameStep => self.frame_step * frame_scale,
             };
             self.offset += distance;
             self.last_delta = distance;
@@ -348,17 +368,23 @@ impl ScrollingBackground {
 
     fn draw_texture_tiles(&self, texture: &Texture2D) {
         let tile_width = texture.width() * BACKGROUND_DRAW_SCALE;
-        let tile_size = vec2(tile_width, self.tile_height);
-        let columns = (screen_width() / tile_width).ceil() as i32 + 1;
-        let rows = (screen_height() / self.tile_height).ceil() as i32 + 2;
-        let offset = self.offset.rem_euclid(self.tile_height);
+        let tile_height = texture.height() * BACKGROUND_DRAW_SCALE;
+        let tile_size = vec2(tile_width, tile_height);
+        let offset = self.offset.rem_euclid(tile_height);
+        if tile_width >= screen_width() && tile_height >= screen_height() {
+            self.draw_large_texture_wrap(texture, tile_width, tile_height, offset);
+            return;
+        }
+
+        let columns = (screen_width() / tile_width).ceil() as i32;
+        let rows = (screen_height() / tile_height).ceil() as i32 + 1;
 
         for row in -1..rows {
             for column in 0..columns {
                 draw_texture_ex(
                     texture,
                     column as f32 * tile_width,
-                    row as f32 * self.tile_height + offset,
+                    row as f32 * tile_height + offset,
                     WHITE,
                     DrawTextureParams {
                         dest_size: Some(tile_size),
@@ -366,6 +392,28 @@ impl ScrollingBackground {
                     },
                 );
             }
+        }
+    }
+
+    fn draw_large_texture_wrap(
+        &self,
+        texture: &Texture2D,
+        tile_width: f32,
+        tile_height: f32,
+        offset: f32,
+    ) {
+        let tile_size = vec2(tile_width, tile_height);
+        for row in -1..1 {
+            draw_texture_ex(
+                texture,
+                0.0,
+                row as f32 * tile_height + offset,
+                WHITE,
+                DrawTextureParams {
+                    dest_size: Some(tile_size),
+                    ..Default::default()
+                },
+            );
         }
     }
 
@@ -430,6 +478,10 @@ fn player_frame_size(texture: &Texture2D) -> Vec2 {
         texture.width() / PLAYER_FRAME_COUNT as f32,
         texture.height(),
     )
+}
+
+fn frame_step_scale(target_refresh_hz: u32) -> f32 {
+    REFERENCE_GAME_HZ / target_refresh_hz.max(1) as f32
 }
 
 fn target_frame_for_axis(axis_x: f32) -> usize {
