@@ -13,7 +13,7 @@ use config::*;
 use cpu_stats::CpuStats;
 use diagnostics::{
     diagnostic_verdict, draw_frame_marker, draw_hud, fps_from_dt, frame_marker, log_frame_marker,
-    FrameMarker, HudState,
+    warm_hud_font_cache, FrameMarker, HudState,
 };
 use frame_log::FrameLog;
 use frame_pacer::FramePacer;
@@ -77,6 +77,7 @@ async fn main() {
     let mut manual_pacer_enabled = app_options.manual_pacer_enabled;
     let mut previous_loop_time = get_time() - 1.0 / f64::from(TARGET_REFRESH_HZ_U32);
     let app_started_at = get_time();
+    let mut hud_font_cache_warmed = false;
     let mut diag_measurement_started_at =
         if app_options.diag_seconds.is_some() && app_options.diag_warmup_seconds <= 0.0 {
             Some(app_started_at)
@@ -145,6 +146,10 @@ async fn main() {
         };
 
         clear_background(CLEAR_COLOR);
+        if !hud_font_cache_warmed {
+            warm_hud_font_cache(&assets);
+            hud_font_cache_warmed = true;
+        }
         if !clear_only {
             let input = InputState::read();
             game.update(input, dt);

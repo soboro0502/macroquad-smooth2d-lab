@@ -109,19 +109,21 @@ pub fn draw_hud(assets: &Assets, stats: &FrameStats, state: HudState) {
     };
     let log = if state.frame_log_enabled { "ON" } else { "OFF" };
     let quality = diagnostic_verdict(snapshot);
-    let text = format!(
-        "Q {}  LOAD {}  PACE {} M {:.2} T {:.2}  LOG {}  MODE {}  DRAW {}  BGSTEP {:.0}px BGD {:>5.2}  CPU {:>5.1}%  fps {:>3}/{:>5.1}  ms last {:>5.2} avg {:>5.2} p95 {:>5.2} p99 {:>5.2} range {:>5.2}-{:>5.2} sd {:>4.2} slow {:>4.1}% spk {:>2} BG {}",
+    let status_line = format!(
+        "STATUS Q {} | LOAD {} | PACE {} M {:.2} T {:.2} | CPU {:>5.1}% | LOG {} | MODE {} | DRAW {} | BG {}",
         quality,
         load,
         pace,
         state.pacer_sleep_margin_secs * 1000.0,
         state.pacer_sleep_threshold_secs * 1000.0,
+        state.cpu_percent,
         log,
         state.timing_mode.label(),
         state.background_mode.label(),
-        state.background_frame_step,
-        state.background_last_delta,
-        state.cpu_percent,
+        scroll,
+    );
+    let frame_line = format!(
+        "FRAME  fps {:>3}/{:>5.1} | ms last {:>5.2} avg {:>5.2} p95 {:>5.2} p99 {:>5.2} range {:>5.2}-{:>5.2} sd {:>4.2} | BGSTEP {:.0}px BGD {:>5.2} slow {:>4.1}% spk {:>2}",
         snapshot.fps,
         snapshot.avg_fps,
         snapshot.last_ms,
@@ -131,26 +133,44 @@ pub fn draw_hud(assets: &Assets, stats: &FrameStats, state: HudState) {
         snapshot.min_ms,
         snapshot.max_ms,
         snapshot.stdev_ms,
+        state.background_frame_step,
+        state.background_last_delta,
         snapshot.slow_percent,
         snapshot.spike_count,
-        scroll
     );
+    let lines = [status_line.as_str(), frame_line.as_str()];
 
     draw_rectangle(
-        8.0,
-        8.0,
-        screen_width() - 16.0,
-        30.0,
+        HUD_MARGIN,
+        HUD_MARGIN,
+        screen_width() - HUD_MARGIN * 2.0,
+        HUD_BACKGROUND_HEIGHT,
         Color::new(0.0, 0.0, 0.0, 0.55),
     );
+    for (index, line) in lines.iter().enumerate() {
+        draw_text_ex(
+            *line,
+            HUD_TEXT_X,
+            HUD_TEXT_FIRST_BASELINE + HUD_LINE_HEIGHT * index as f32,
+            TextParams {
+                font: Some(&assets.font),
+                font_size: HUD_FONT_SIZE,
+                color: WHITE,
+                ..Default::default()
+            },
+        );
+    }
+}
+
+pub fn warm_hud_font_cache(assets: &Assets) {
     draw_text_ex(
-        &text,
-        14.0,
-        30.0,
+        "STATUS FRAME Q PASS WARN WAIT LOAD CLEAR FULL PACE SLEEP SPIN AUTO LOG ON OFF CPU MODE DRAW TEX PROBE BANDS BGSTEP BGD slow spk BG 0123456789.-/%|",
+        0.0,
+        0.0,
         TextParams {
             font: Some(&assets.font),
             font_size: HUD_FONT_SIZE,
-            color: WHITE,
+            color: CLEAR_COLOR,
             ..Default::default()
         },
     );
