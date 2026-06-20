@@ -79,15 +79,19 @@ fn frame_marker(dt: f32) -> FrameMarker {
 }
 
 fn draw_frame_marker(frame_marker: FrameMarker) {
-    let color = match frame_marker {
+    let (x, color) = match frame_marker {
         FrameMarker::None => return,
-        FrameMarker::Slow => Color::new(1.0, 0.08, 0.08, 0.9),
-        FrameMarker::Fast => Color::new(0.08, 0.45, 1.0, 0.9),
+        FrameMarker::Slow => (FRAME_MARKER_MARGIN, Color::new(1.0, 0.08, 0.08, 0.9)),
+        FrameMarker::Fast => (
+            FRAME_MARKER_MARGIN + FRAME_SPIKE_MARKER_SIZE + FRAME_MARKER_GAP,
+            Color::new(0.08, 0.45, 1.0, 0.9),
+        ),
     };
+    let y = screen_height() - FRAME_MARKER_MARGIN - FRAME_SPIKE_MARKER_SIZE;
 
     draw_rectangle(
-        8.0,
-        8.0,
+        x,
+        y,
         FRAME_SPIKE_MARKER_SIZE,
         FRAME_SPIKE_MARKER_SIZE,
         color,

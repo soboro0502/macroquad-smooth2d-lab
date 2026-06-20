@@ -34,5 +34,7 @@ pub const TARGET_REFRESH_HZ: f32 = 120.0;
 pub const FRAME_SPIKE_HZ: f32 = 100.0;
 pub const FRAME_FAST_HZ: f32 = 150.0;
 pub const FRAME_SPIKE_MARKER_SIZE: f32 = 28.0;
+pub const FRAME_MARKER_MARGIN: f32 = 16.0;
+pub const FRAME_MARKER_GAP: f32 = 10.0;
 
 pub const CLEAR_COLOR: Color = Color::new(0.02, 0.025, 0.035, 1.0);
