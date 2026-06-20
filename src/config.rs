@@ -21,6 +21,9 @@ pub const BACKGROUND_DRAW_SCALE: f32 = 2.0;
 pub const PROBE_BAND_HEIGHT: f32 = 180.0;
 pub const PROBE_BAND_GAP: f32 = 140.0;
 pub const PROBE_MARKER_HEIGHT: f32 = 12.0;
+pub const PROBE_GUIDE_INTERVAL: f32 = 120.0;
+pub const PROBE_GUIDE_THICKNESS: f32 = 2.0;
+pub const PROBE_SCROLL_LINE_THICKNESS: f32 = 4.0;
 
 pub const ASSET_BG_TEST: &str = "assets/bg_test.png";
 pub const ASSET_BG_PROBE: &str = "assets/bg_probe.png";
@@ -50,3 +53,5 @@ pub const DIAG_PASS_SLOW_PERCENT: f32 = 0.5;
 pub const DIAG_PASS_SPIKES: usize = 0;
 
 pub const CLEAR_COLOR: Color = Color::new(0.02, 0.025, 0.035, 1.0);
+pub const PROBE_GUIDE_COLOR: Color = Color::new(0.75, 0.78, 0.84, 0.22);
+pub const PROBE_SCROLL_LINE_COLOR: Color = Color::new(1.0, 0.96, 0.30, 1.0);

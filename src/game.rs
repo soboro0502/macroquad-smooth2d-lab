@@ -358,6 +358,8 @@ impl ScrollingBackground {
     }
 
     fn draw_stripes(&self) {
+        self.draw_fixed_guides();
+
         let cycle = PROBE_BAND_HEIGHT + PROBE_BAND_GAP;
         let rows = (screen_height() / cycle).ceil() as i32 + 2;
         let offset = self.offset.rem_euclid(cycle);
@@ -384,6 +386,28 @@ impl ScrollingBackground {
                 24.0,
                 PROBE_BAND_HEIGHT,
                 Color::new(0.90, 0.55, 0.20, 1.0),
+            );
+        }
+
+        draw_rectangle(
+            0.0,
+            offset,
+            screen_width(),
+            PROBE_SCROLL_LINE_THICKNESS,
+            PROBE_SCROLL_LINE_COLOR,
+        );
+    }
+
+    fn draw_fixed_guides(&self) {
+        let guide_count = (screen_height() / PROBE_GUIDE_INTERVAL).ceil() as i32 + 1;
+        for guide in 0..guide_count {
+            let y = guide as f32 * PROBE_GUIDE_INTERVAL;
+            draw_rectangle(
+                0.0,
+                y,
+                screen_width(),
+                PROBE_GUIDE_THICKNESS,
+                PROBE_GUIDE_COLOR,
             );
         }
     }
