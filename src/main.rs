@@ -1,9 +1,11 @@
 mod config;
+mod cpu_stats;
 mod frame_pacer;
 mod frame_stats;
 mod game;
 
 use config::*;
+use cpu_stats::CpuStats;
 use frame_pacer::FramePacer;
 use frame_stats::FrameStats;
 use game::{Assets, Game, InputState, TimingMode};
@@ -30,6 +32,7 @@ async fn main() {
     let assets = Assets::load().await;
     let mut game = Game::new(&assets);
     let mut stats = FrameStats::new();
+    let mut cpu_stats = CpuStats::new(HUD_SAMPLE_SECONDS);
     let frame_pacer = FramePacer::new();
     let mut hud_visible = false;
     let mut clear_only = false;
@@ -48,6 +51,7 @@ async fn main() {
             manual_pacer_enabled = !manual_pacer_enabled;
         }
         stats.record(dt, get_fps(), 1.0 / TARGET_REFRESH_HZ);
+        cpu_stats.update(dt);
         let frame_marker = frame_marker(dt);
 
         clear_background(CLEAR_COLOR);
@@ -68,6 +72,7 @@ async fn main() {
                 game.background_frame_step(),
                 clear_only,
                 manual_pacer_enabled,
+                cpu_stats.percent,
             );
         }
 
@@ -124,6 +129,7 @@ fn draw_hud(
     background_frame_step: f32,
     clear_only: bool,
     manual_pacer_enabled: bool,
+    cpu_percent: f32,
 ) {
     let snapshot = stats.snapshot;
     let scroll = if scroll_enabled { "ON" } else { "OFF" };
@@ -134,12 +140,13 @@ fn draw_hud(
         "AUTO"
     };
     let text = format!(
-        "LOAD {}  PACE {}  MODE {}  DRAW {}  BGSTEP {:.0}px  fps {:>3}  last {:>5.2}ms  avg {:>5.2}ms  range {:>5.2}-{:>5.2}  sd {:>4.2}  slow {:>4.1}%  spikes {:>2}  BG {}",
+        "LOAD {}  PACE {}  MODE {}  DRAW {}  BGSTEP {:.0}px  CPU {:>5.1}%  fps {:>3}  last {:>5.2}ms  avg {:>5.2}ms  range {:>5.2}-{:>5.2}  sd {:>4.2}  slow {:>4.1}%  spikes {:>2}  BG {}",
         load,
         pace,
         timing_mode.label(),
         background_mode.label(),
         background_frame_step,
+        cpu_percent,
         snapshot.fps,
         snapshot.last_ms,
         snapshot.avg_ms,
