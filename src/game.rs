@@ -45,6 +45,7 @@ pub struct InputState {
     pub toggle_scroll: bool,
     pub toggle_timing_mode: bool,
     pub toggle_background_mode: bool,
+    pub selected_background_step: Option<f32>,
 }
 
 impl InputState {
@@ -73,7 +74,22 @@ impl InputState {
             toggle_scroll: is_key_pressed(KeyCode::Space),
             toggle_timing_mode: is_key_pressed(KeyCode::Tab),
             toggle_background_mode: is_key_pressed(KeyCode::G),
+            selected_background_step: selected_background_step(),
         }
+    }
+}
+
+fn selected_background_step() -> Option<f32> {
+    if is_key_pressed(KeyCode::Key1) {
+        Some(BACKGROUND_STEP_1)
+    } else if is_key_pressed(KeyCode::Key2) {
+        Some(BACKGROUND_STEP_2)
+    } else if is_key_pressed(KeyCode::Key3) {
+        Some(BACKGROUND_STEP_3)
+    } else if is_key_pressed(KeyCode::Key4) {
+        Some(BACKGROUND_STEP_4)
+    } else {
+        None
     }
 }
 
@@ -135,6 +151,9 @@ impl Game {
         if input.toggle_scroll {
             self.background.toggle();
         }
+        if let Some(frame_step) = input.selected_background_step {
+            self.background.set_frame_step(frame_step);
+        }
         self.background.update(self.timing_mode, dt);
         self.player.update(input, self.timing_mode, dt);
     }
@@ -158,6 +177,10 @@ impl Game {
 
     pub fn background_mode(&self) -> BackgroundMode {
         self.background_mode
+    }
+
+    pub fn background_frame_step(&self) -> f32 {
+        self.background.frame_step()
     }
 }
 
@@ -256,6 +279,7 @@ struct ScrollingBackground {
     offset: f32,
     tile_height: f32,
     enabled: bool,
+    frame_step: f32,
 }
 
 impl ScrollingBackground {
@@ -264,6 +288,7 @@ impl ScrollingBackground {
             offset: 0.0,
             tile_height,
             enabled: true,
+            frame_step: DEFAULT_BACKGROUND_STEP,
         }
     }
 
@@ -271,11 +296,19 @@ impl ScrollingBackground {
         self.enabled = !self.enabled;
     }
 
+    fn set_frame_step(&mut self, frame_step: f32) {
+        self.frame_step = frame_step;
+    }
+
+    fn frame_step(&self) -> f32 {
+        self.frame_step
+    }
+
     fn update(&mut self, timing_mode: TimingMode, dt: f32) {
         if self.enabled {
             let distance = match timing_mode {
                 TimingMode::DeltaTime => BACKGROUND_SCROLL_SPEED * dt,
-                TimingMode::FrameStep => FRAME_STEP_BACKGROUND_PIXELS,
+                TimingMode::FrameStep => self.frame_step,
             };
             self.offset += distance;
         }

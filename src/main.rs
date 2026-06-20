@@ -44,6 +44,7 @@ async fn main() {
                 game.scroll_enabled(),
                 game.timing_mode(),
                 game.background_mode(),
+                game.background_frame_step(),
             );
             stats.record(dt, get_fps(), 1.0 / TARGET_REFRESH_HZ);
         }
@@ -58,13 +59,15 @@ fn draw_hud(
     scroll_enabled: bool,
     timing_mode: TimingMode,
     background_mode: game::BackgroundMode,
+    background_frame_step: f32,
 ) {
     let snapshot = stats.snapshot;
     let scroll = if scroll_enabled { "ON" } else { "OFF" };
     let text = format!(
-        "MODE {}  DRAW {}  fps {:>3}  avg {:>5.2}ms  range {:>5.2}-{:>5.2}  sd {:>4.2}  slow {:>4.1}%  spikes {:>2}  BG {}",
+        "MODE {}  DRAW {}  BGSTEP {:.0}px  fps {:>3}  avg {:>5.2}ms  range {:>5.2}-{:>5.2}  sd {:>4.2}  slow {:>4.1}%  spikes {:>2}  BG {}",
         timing_mode.label(),
         background_mode.label(),
+        background_frame_step,
         snapshot.fps,
         snapshot.avg_ms,
         snapshot.min_ms,
