@@ -108,7 +108,7 @@ impl Game {
         Self {
             player: Player::new(start, frame_size),
             background: ScrollingBackground::new(assets.background.height()),
-            timing_mode: TimingMode::DeltaTime,
+            timing_mode: TimingMode::FrameStep,
         }
     }
 

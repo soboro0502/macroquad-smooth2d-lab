@@ -23,17 +23,24 @@ async fn main() {
     let assets = Assets::load().await;
     let mut game = Game::new(&assets);
     let mut stats = FrameStats::new();
+    let mut hud_visible = false;
 
     loop {
         let dt = get_frame_time();
+        if is_key_pressed(KeyCode::H) {
+            hud_visible = !hud_visible;
+        }
+
         let input = InputState::read();
         game.update(input, dt);
 
         clear_background(CLEAR_COLOR);
         game.draw(&assets);
-        draw_hud(&assets, &stats, game.scroll_enabled(), game.timing_mode());
 
-        stats.record(dt, get_fps(), 1.0 / TARGET_REFRESH_HZ);
+        if hud_visible {
+            draw_hud(&assets, &stats, game.scroll_enabled(), game.timing_mode());
+            stats.record(dt, get_fps(), 1.0 / TARGET_REFRESH_HZ);
+        }
 
         next_frame().await;
     }
