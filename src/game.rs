@@ -265,7 +265,7 @@ impl ScrollingBackground {
                 TimingMode::DeltaTime => BACKGROUND_SCROLL_SPEED * dt,
                 TimingMode::FrameStep => FRAME_STEP_BACKGROUND_PIXELS,
             };
-            self.offset = (self.offset + distance) % self.tile_height;
+            self.offset += distance;
         }
     }
 
@@ -281,13 +281,14 @@ impl ScrollingBackground {
         let tile_size = vec2(tile_width, self.tile_height);
         let columns = (screen_width() / tile_width).ceil() as i32 + 1;
         let rows = (screen_height() / self.tile_height).ceil() as i32 + 2;
+        let offset = self.offset.rem_euclid(self.tile_height);
 
         for row in -1..rows {
             for column in 0..columns {
                 draw_texture_ex(
                     texture,
                     column as f32 * tile_width,
-                    row as f32 * self.tile_height + self.offset,
+                    row as f32 * self.tile_height + offset,
                     WHITE,
                     DrawTextureParams {
                         dest_size: Some(tile_size),
@@ -301,9 +302,10 @@ impl ScrollingBackground {
     fn draw_stripes(&self) {
         let cycle = PROBE_BAND_HEIGHT + PROBE_BAND_GAP;
         let rows = (screen_height() / cycle).ceil() as i32 + 2;
+        let offset = self.offset.rem_euclid(cycle);
 
         for row in -1..rows {
-            let y = row as f32 * cycle + self.offset % cycle;
+            let y = row as f32 * cycle + offset;
             draw_rectangle(
                 0.0,
                 y,
