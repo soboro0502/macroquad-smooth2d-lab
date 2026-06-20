@@ -224,6 +224,16 @@ Detailed investigation notes are in:
 
 - [docs/frame_pacing_asset.md](docs/frame_pacing_asset.md)
 
+## License
+
+Macroquad Smooth2D Lab is dual-licensed under either of:
+
+- MIT License ([LICENSE-MIT](LICENSE-MIT))
+- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE))
+
+The bundled Silkscreen font is licensed separately under the SIL Open Font
+License 1.1.
+
 ## Font
 
 The bundled HUD font is Silkscreen Regular from Google Fonts.
