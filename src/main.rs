@@ -167,6 +167,10 @@ fn diag_sample_capacity(diag_seconds: f64) -> usize {
 }
 
 fn diagnostic_verdict(snapshot: frame_stats::FrameStatsSnapshot) -> &'static str {
+    if snapshot.avg_ms <= 0.0 {
+        return "WAIT";
+    }
+
     if snapshot.p99_ms <= DIAG_PASS_P99_MS
         && snapshot.stdev_ms <= DIAG_PASS_STDEV_MS
         && snapshot.slow_percent <= DIAG_PASS_SLOW_PERCENT
@@ -314,8 +318,10 @@ fn draw_hud(
         "AUTO"
     };
     let log = if frame_log_enabled { "ON" } else { "OFF" };
+    let quality = diagnostic_verdict(snapshot);
     let text = format!(
-        "LOAD {}  PACE {}  LOG {}  MODE {}  DRAW {}  BGSTEP {:.0}px  CPU {:>5.1}%  fps {:>3}/{:>5.1}  ms last {:>5.2} avg {:>5.2} p95 {:>5.2} p99 {:>5.2} range {:>5.2}-{:>5.2} sd {:>4.2} slow {:>4.1}% spk {:>2} BG {}",
+        "Q {}  LOAD {}  PACE {}  LOG {}  MODE {}  DRAW {}  BGSTEP {:.0}px  CPU {:>5.1}%  fps {:>3}/{:>5.1}  ms last {:>5.2} avg {:>5.2} p95 {:>5.2} p99 {:>5.2} range {:>5.2}-{:>5.2} sd {:>4.2} slow {:>4.1}% spk {:>2} BG {}",
+        quality,
         load,
         pace,
         log,
