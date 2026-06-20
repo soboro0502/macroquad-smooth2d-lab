@@ -2,11 +2,10 @@ mod config;
 mod frame_stats;
 mod game;
 
-use macroquad::prelude::*;
-
 use config::*;
 use frame_stats::FrameStats;
 use game::{Assets, Game, InputState};
+use macroquad::prelude::*;
 
 fn window_conf() -> Conf {
     Conf {
@@ -15,10 +14,6 @@ fn window_conf() -> Conf {
         window_height: WINDOW_HEIGHT,
         high_dpi: false,
         window_resizable: false,
-        platform: miniquad::conf::Platform {
-            swap_interval: Some(1),
-            ..Default::default()
-        },
         ..Default::default()
     }
 }
@@ -28,38 +23,27 @@ async fn main() {
     let assets = Assets::load().await;
     let mut game = Game::new(&assets);
     let mut stats = FrameStats::new();
-    let mut accumulator = 0.0;
 
     loop {
-        let frame_dt = get_frame_time().min(MAX_FRAME_DT);
-        accumulator += frame_dt;
-
+        let dt = get_frame_time();
         let input = InputState::read();
-        let mut fixed_steps = 0;
-        while accumulator >= FIXED_DT && fixed_steps < MAX_FIXED_STEPS_PER_FRAME {
-            game.fixed_update(input);
-            accumulator -= FIXED_DT;
-            fixed_steps += 1;
-        }
-        if fixed_steps == MAX_FIXED_STEPS_PER_FRAME {
-            accumulator = accumulator.min(FIXED_DT);
-        }
-
-        let alpha = (accumulator / FIXED_DT).clamp(0.0, 1.0);
+        game.update(input, dt);
 
         clear_background(CLEAR_COLOR);
-        game.draw(&assets, alpha);
-        draw_hud(&assets, &stats, alpha, fixed_steps);
+        game.draw(&assets);
+        draw_hud(&assets, &stats, game.scroll_enabled());
 
-        stats.record(get_frame_time(), get_fps(), 1.0 / 120.0);
+        stats.record(dt, get_fps(), 1.0 / TARGET_REFRESH_HZ);
+
         next_frame().await;
     }
 }
 
-fn draw_hud(assets: &Assets, stats: &FrameStats, alpha: f32, fixed_steps: usize) {
+fn draw_hud(assets: &Assets, stats: &FrameStats, scroll_enabled: bool) {
     let snapshot = stats.snapshot;
+    let scroll = if scroll_enabled { "ON" } else { "OFF" };
     let text = format!(
-        "fps {:>3}  avg {:>5.2}ms  range {:>5.2}-{:>5.2}  sd {:>4.2}  slow {:>4.1}%  spikes {:>2}  alpha {:>4.2}  steps {}",
+        "LOVE-LIKE VARIABLE DT  fps {:>3}  avg {:>5.2}ms  range {:>5.2}-{:>5.2}  sd {:>4.2}  slow {:>4.1}%  spikes {:>2}  BG {}",
         snapshot.fps,
         snapshot.avg_ms,
         snapshot.min_ms,
@@ -67,8 +51,7 @@ fn draw_hud(assets: &Assets, stats: &FrameStats, alpha: f32, fixed_steps: usize)
         snapshot.stdev_ms,
         snapshot.slow_percent,
         snapshot.spike_count,
-        alpha,
-        fixed_steps
+        scroll
     );
 
     draw_rectangle(

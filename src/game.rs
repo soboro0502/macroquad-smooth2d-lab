@@ -20,8 +20,8 @@ impl Assets {
             .await
             .expect("failed to load HUD font");
 
-        background.set_filter(FilterMode::Nearest);
-        player.set_filter(FilterMode::Nearest);
+        background.set_filter(FilterMode::Linear);
+        player.set_filter(FilterMode::Linear);
         font.set_filter(FilterMode::Nearest);
 
         Self {
@@ -36,6 +36,7 @@ impl Assets {
 pub struct InputState {
     pub axis: Vec2,
     pub slow: bool,
+    pub toggle_scroll: bool,
 }
 
 impl InputState {
@@ -61,6 +62,7 @@ impl InputState {
         Self {
             axis,
             slow: is_key_down(KeyCode::LeftShift) || is_key_down(KeyCode::RightShift),
+            toggle_scroll: is_key_pressed(KeyCode::Space),
         }
     }
 }
@@ -84,47 +86,46 @@ impl Game {
         }
     }
 
-    pub fn fixed_update(&mut self, input: InputState) {
-        self.background.fixed_update();
-        self.player.fixed_update(input);
+    pub fn update(&mut self, input: InputState, dt: f32) {
+        if input.toggle_scroll {
+            self.background.toggle();
+        }
+        self.background.update(dt);
+        self.player.update(input, dt);
     }
 
-    pub fn draw(&self, assets: &Assets, alpha: f32) {
-        self.background.draw(&assets.background, alpha);
-        self.player.draw(&assets.player, alpha);
+    pub fn draw(&self, assets: &Assets) {
+        self.background.draw(&assets.background);
+        self.player.draw(&assets.player);
+    }
+
+    pub fn scroll_enabled(&self) -> bool {
+        self.background.enabled
     }
 }
 
 struct Player {
-    previous_position: Vec2,
     position: Vec2,
     frame_size: Vec2,
     current_frame: usize,
-    target_frame: usize,
-    lean_timer: f32,
 }
 
 impl Player {
     fn new(position: Vec2, frame_size: Vec2) -> Self {
         Self {
-            previous_position: position,
             position,
             frame_size,
             current_frame: PLAYER_CENTER_FRAME,
-            target_frame: PLAYER_CENTER_FRAME,
-            lean_timer: 0.0,
         }
     }
 
-    fn fixed_update(&mut self, input: InputState) {
-        self.previous_position = self.position;
-
+    fn update(&mut self, input: InputState, dt: f32) {
         let speed = if input.slow {
             PLAYER_SLOW_SPEED
         } else {
             PLAYER_SPEED
         };
-        self.position += input.axis * speed * FIXED_DT;
+        self.position += input.axis * speed * dt;
         self.position.x = self
             .position
             .x
@@ -133,27 +134,10 @@ impl Player {
             .position
             .y
             .clamp(0.0, screen_height() - self.frame_size.y);
-
-        self.target_frame = target_frame_for_axis(input.axis.x);
-        self.update_lean_frame();
+        self.current_frame = target_frame_for_axis(input.axis.x);
     }
 
-    fn update_lean_frame(&mut self) {
-        self.lean_timer += FIXED_DT;
-        if self.lean_timer < PLAYER_LEAN_STEP_SECONDS {
-            return;
-        }
-
-        self.lean_timer = 0.0;
-        self.current_frame = match self.current_frame.cmp(&self.target_frame) {
-            std::cmp::Ordering::Less => self.current_frame + 1,
-            std::cmp::Ordering::Greater => self.current_frame - 1,
-            std::cmp::Ordering::Equal => self.current_frame,
-        };
-    }
-
-    fn draw(&self, texture: &Texture2D, alpha: f32) {
-        let draw_position = self.previous_position.lerp(self.position, alpha);
+    fn draw(&self, texture: &Texture2D) {
         let source = Rect::new(
             self.frame_size.x * self.current_frame as f32,
             0.0,
@@ -163,8 +147,8 @@ impl Player {
 
         draw_texture_ex(
             texture,
-            draw_position.x,
-            draw_position.y,
+            self.position.x,
+            self.position.y,
             WHITE,
             DrawTextureParams {
                 source: Some(source),
@@ -176,27 +160,31 @@ impl Player {
 }
 
 struct ScrollingBackground {
-    previous_offset: f32,
     offset: f32,
     tile_height: f32,
+    enabled: bool,
 }
 
 impl ScrollingBackground {
     fn new(tile_height: f32) -> Self {
         Self {
-            previous_offset: 0.0,
             offset: 0.0,
             tile_height,
+            enabled: true,
         }
     }
 
-    fn fixed_update(&mut self) {
-        self.previous_offset = self.offset;
-        self.offset = (self.offset + BACKGROUND_SCROLL_SPEED * FIXED_DT) % self.tile_height;
+    fn toggle(&mut self) {
+        self.enabled = !self.enabled;
     }
 
-    fn draw(&self, texture: &Texture2D, alpha: f32) {
-        let offset = lerp_wrapped(self.previous_offset, self.offset, alpha, self.tile_height);
+    fn update(&mut self, dt: f32) {
+        if self.enabled {
+            self.offset = (self.offset + BACKGROUND_SCROLL_SPEED * dt) % self.tile_height;
+        }
+    }
+
+    fn draw(&self, texture: &Texture2D) {
         let tile_width = texture.width();
         let columns = (screen_width() / tile_width).ceil() as i32 + 1;
         let rows = (screen_height() / self.tile_height).ceil() as i32 + 2;
@@ -206,7 +194,7 @@ impl ScrollingBackground {
                 draw_texture(
                     texture,
                     column as f32 * tile_width,
-                    row as f32 * self.tile_height + offset,
+                    row as f32 * self.tile_height + self.offset,
                     WHITE,
                 );
             }
@@ -233,12 +221,4 @@ fn target_frame_for_axis(axis_x: f32) -> usize {
     } else {
         PLAYER_CENTER_FRAME
     }
-}
-
-fn lerp_wrapped(previous: f32, current: f32, alpha: f32, wrap: f32) -> f32 {
-    let mut delta = current - previous;
-    if delta < -wrap * 0.5 {
-        delta += wrap;
-    }
-    (previous + delta * alpha) % wrap
 }
