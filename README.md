@@ -305,6 +305,8 @@ Disable it only for investigation:
 Detailed investigation notes are in:
 
 - [docs/frame_pacing_asset.md](docs/frame_pacing_asset.md)
+- [CHANGELOG.md](CHANGELOG.md)
+- [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## License
 
