@@ -1,126 +1,228 @@
-# Rust-STG Macroquad Frame Pacing Lab
+# Macroquad Smooth2D Lab
 
-Rust-STG is a small Macroquad test project for investigating arcade-quality 2D frame pacing at 60 Hz and 120 Hz.
+Macroquad Smooth2D Lab is a Macroquad frame pacing laboratory for arcade-quality 2D motion.
 
-The current default is tuned for frame-time investigation on macOS:
+It is not trying to maximize average FPS. The goal is to make frame intervals, scrolling, and sprite movement observable, repeatable, and tunable enough to become a reusable game timing library.
 
-- 120 Hz default target frame pacing, with `--target-hz 60` for 60 Hz verification
-- `assets/br_01.png` as the default looping background
-- Mach wait + balanced final spin pacer
-- HUD and diagnostic logs split `next_frame`, OS wait, and spin wait timing
-- `QOS_CLASS_USER_INTERACTIVE`
-- `THREAD_TIME_CONSTRAINT_POLICY`
-- strict diagnostics that fail on single-frame max-time spikes
-
-The goal is not high average FPS. The goal is stable frame intervals with no visible single-frame shake.
-
-## Run
+## Quick Start
 
 ```bash
-./run.sh
+./run.sh --profile stable60
+./run.sh --profile smooth120
 ```
 
-## Verify
+Current profiles:
+
+| Profile | Target | Purpose |
+| --- | ---: | --- |
+| `stable60` | 60 Hz | Stability-first profile. Best current baseline for shipping and long observation. |
+| `smooth120` | 120 Hz | Motion-quality profile. Player movement feels better, but present timing must be watched. |
+
+The default `./run.sh` uses `smooth120`.
+
+## What It Does
+
+- Uses Macroquad with a fixed-size 1920x1080 window.
+- Draws `assets/br_01.png` as a looping test background.
+- Draws a five-frame player sprite sheet.
+- Uses frame-step movement normalized against a 120 Hz reference.
+- Uses macOS thread tuning where available:
+  - `QOS_CLASS_USER_INTERACTIVE`
+  - `THREAD_TIME_CONSTRAINT_POLICY`
+- Uses a manual pacer after `next_frame().await`:
+  - `mach_wait_until` for coarse waiting
+  - short final spin for deadline precision
+- Measures `next_frame`, OS wait, spin wait, CPU, frame range, p95, p99, slow frames, and spikes.
+- Adds startup warmup before gameplay movement and diagnostics begin.
+
+## Controls
+
+| Key | Action |
+| --- | --- |
+| Arrow keys / WASD | Move player |
+| Left Shift / Right Shift | Slow player movement |
+| `Z` | Decrease player speed scale |
+| `X` | Increase player speed scale |
+| Space | Toggle background scroll |
+| `Tab` | Toggle timing mode: frame-step / delta-time |
+| `G` | Change background diagnostic mode |
+| `1` / `2` / `3` / `4` | Set background frame-step amount |
+| `H` | Toggle HUD |
+| `C` | Toggle clear-only load mode |
+| `P` | Toggle manual pacer |
+| `L` | Toggle frame event log |
+
+## Command Options
+
+### Profiles
+
+```bash
+./run.sh --profile stable60
+./run.sh --profile smooth120
+```
+
+Aliases:
+
+```bash
+./run.sh --profile 60
+./run.sh --profile 120
+```
+
+Low-level target override remains available:
+
+```bash
+./run.sh --target-hz 60
+./run.sh --target-hz 120
+```
+
+### Diagnostics
+
+```bash
+./run.sh --diag
+./run.sh --diag-seconds 60
+./run.sh --diag-warmup-seconds 5
+./run.sh --diag-no-warmup
+```
+
+Startup warmup:
+
+```bash
+./run.sh --startup-warmup-seconds 1.0
+./run.sh --no-startup-warmup
+```
+
+Visual inspection:
+
+```bash
+./run.sh --visual-check
+./run.sh --visual-check --hud
+./run.sh --visual-check --profile stable60
+./run.sh --visual-check --profile smooth120
+```
+
+### Pacer Modes
+
+```bash
+./run.sh --mach-pacer
+./run.sh --balanced-pacer
+./run.sh --precision-pacer
+./run.sh --eco-pacer
+./run.sh --sleep-pacer
+./run.sh --spin-pacer
+```
+
+Manual tuning:
+
+```bash
+./run.sh --pacer-margin-ms 4.5
+./run.sh --pacer-sleep-threshold-ms 6.2
+./run.sh --diag-auto
+./run.sh --diag-manual
+```
+
+macOS thread tuning:
+
+```bash
+./run.sh --time-constraint
+./run.sh --no-time-constraint
+```
+
+### Scene Modes
+
+```bash
+./run.sh --texture
+./run.sh --probe
+./run.sh --bands
+./run.sh --frame
+./run.sh --dt
+./run.sh --bg-step 2
+```
+
+## Recommended Checks
 
 ```bash
 ./check.sh
-./run.sh --diag-seconds 120 --diag-warmup-seconds 5 --visual-check
-./run.sh --diag-seconds 60 --diag-warmup-seconds 5 --visual-check --target-hz 60 --bg-step 2
+cargo clippy --offline -- -D warnings
 ```
 
-120 Hz diagnostic result on the reference machine:
+Stable 60 Hz:
+
+```bash
+./run.sh --diag-seconds 60 --diag-warmup-seconds 5 --visual-check --profile stable60 --bg-step 2
+```
+
+Smooth 120 Hz:
+
+```bash
+./run.sh --diag-seconds 60 --diag-warmup-seconds 5 --visual-check --profile smooth120 --bg-step 2
+```
+
+## Reading The HUD
+
+The HUD is intentionally dense. It is for frame pacing investigation, not final game UI.
+
+- `STATUS`: profile, verdict, load, pacer, CPU, log state
+- `SCENE`: movement mode, background mode, scroll state, background step, last background delta, player velocity scale
+- `SYNC`: `next_frame`, OS wait, spin wait, total pacer wait
+- `FRAME`: target Hz, instantaneous FPS, average FPS, last/average/p95/p99 frame ms
+- `STABLE`: min/max frame ms, standard deviation, slow-frame %, spike count
+
+Important interpretation:
+
+- `next_frame_ms` shows time spent inside `next_frame().await`.
+- `pacer_os_wait_ms` shows time spent in `mach_wait_until` or sleep.
+- `pacer_spin_ms` shows CPU-burning final spin time.
+- If `next_frame_ms` returns late, the manual pacer cannot fix that frame because it runs after `next_frame().await`.
+
+## Current Findings
+
+60 Hz is currently the stable baseline:
 
 ```text
-verdict=WARN
-avg_ms=8.362
-p95_ms=8.334
-p99_ms=8.469
-range_ms=8.334-24.829
-sd_ms=0.459
-slow_pct=0.4
-spikes=1
-cpu=55.5%
-bg_delta range=2.000-2.000
-pacer_spin_ms avg=2.221 range=0.000-4.499
-pacer_os_wait_ms avg=0.002 range=0.000-0.266
-next_frame_ms avg=6.045 range=3.519-24.679
+Stable60 PASS
+range_ms=16.667-16.668
+cpu≈30-31%
 ```
 
-At 120 Hz, `next_frame().await` can consume most of the frame boundary wait before the manual pacer runs. In that case the Mach wait path has almost no room to operate, and occasional `next_frame` return delays show up as visible frame-time spikes.
-
-60 Hz verified result on the reference machine:
+120 Hz feels better for player movement:
 
 ```text
-verdict=PASS
-avg_ms=16.667
-p95_ms=16.667
-p99_ms=16.667
-range_ms=16.667-16.670
-sd_ms=0.000
-slow_pct=0.0
-spikes=0
-cpu=30.3%
-bg_delta range=4.000-4.000
-pacer_spin_ms avg=4.490 range=4.448-4.497
-pacer_os_wait_ms avg=11.313 range=9.465-11.504
-next_frame_ms avg=0.756 range=0.602-2.595
+Smooth120 gives finer per-frame player motion.
+It can feel better than 60 Hz, especially while moving the ship.
 ```
 
-At 60 Hz, the frame-step movement is scaled against the 120 Hz reference. The default 2 px/frame background step becomes 4 px/frame so the per-second scroll speed stays the same.
+The tradeoff is present timing:
 
-The runtime hot path has been audited for library use. HUD strings are cached, Mach timebase conversion is cached, HUD statistics avoid per-sample heap allocation, and normal non-diagnostic execution does not update frame statistics while the HUD and frame log are off.
+```text
+120 Hz can still show occasional next_frame/present-boundary spikes.
+These are tracked explicitly with next_frame_ms.
+```
 
-## Diagnostic Modes
+## Startup Warmup
 
-Use the stable default:
+Startup uses a short warmup window before gameplay movement and diagnostics begin.
+
+During warmup:
+
+- The normal scene is drawn.
+- Texture, batching, font, GPU, and first-present paths are exercised.
+- Player input is not applied.
+- Game movement is not advanced.
+- Diagnostics are not recorded.
+
+This prevents first-frame startup cost from being mistaken for normal motion quality.
+
+Disable it only for investigation:
 
 ```bash
-./run.sh --diag-seconds 60 --diag-warmup-seconds 5 --visual-check
+./run.sh --no-startup-warmup
 ```
 
-Show the on-screen HUD when inspecting diagnostics manually:
+## Documentation
 
-```bash
-./run.sh --visual-check --hud
-```
+Detailed investigation notes are in:
 
-Run the same visual check at 60 Hz:
-
-```bash
-./run.sh --diag-seconds 60 --diag-warmup-seconds 5 --visual-check --target-hz 60 --bg-step 2
-```
-
-Compare without macOS time constraint:
-
-```bash
-./run.sh --diag-seconds 10 --diag-warmup-seconds 2 --visual-check --no-time-constraint
-```
-
-Compare pure spin pacing:
-
-```bash
-./run.sh --diag-seconds 10 --diag-warmup-seconds 2 --visual-check --spin-pacer
-```
-
-Compare sleep-spin pacing:
-
-```bash
-./run.sh --diag-seconds 10 --diag-warmup-seconds 2 --visual-check --sleep-pacer
-```
-
-Compare lower CPU pacing:
-
-```bash
-./run.sh --diag-seconds 30 --diag-warmup-seconds 5 --visual-check --eco-pacer
-```
-
-## Tradeoff
-
-The manual pacer only controls the time left after `next_frame().await` returns. At 60 Hz, that leaves enough room for `mach_wait_until` plus a short spin, and the frame pacing is stable at about 30% CPU on the reference MacBook.
-
-At 120 Hz, `next_frame().await` sometimes returns late. Increasing the spin margin does not fix that path, because the slow frame has already happened before the manual pacer gets control. This is now tracked explicitly with `next_frame_ms`, `pacer_os_wait_ms`, and `pacer_spin_ms`.
-
-For the detailed investigation notes, see [docs/frame_pacing_asset.md](docs/frame_pacing_asset.md).
+- [docs/frame_pacing_asset.md](docs/frame_pacing_asset.md)
 
 ## Font
 

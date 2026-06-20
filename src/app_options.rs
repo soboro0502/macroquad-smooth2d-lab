@@ -3,7 +3,9 @@ use crate::game::{BackgroundMode, TimingMode};
 
 #[derive(Clone, Copy)]
 pub struct AppOptions {
+    pub profile: RuntimeProfile,
     pub target_refresh_hz: u32,
+    pub startup_warmup_seconds: f64,
     pub diag_seconds: Option<f64>,
     pub diag_warmup_seconds: f64,
     pub clear_only: bool,
@@ -17,6 +19,38 @@ pub struct AppOptions {
     pub timing_mode: TimingMode,
     pub background_mode: BackgroundMode,
     pub background_frame_step: f32,
+}
+
+#[derive(Clone, Copy)]
+pub enum RuntimeProfile {
+    Stable60,
+    Smooth120,
+    Custom,
+}
+
+impl RuntimeProfile {
+    pub fn target_refresh_hz(self) -> u32 {
+        match self {
+            Self::Stable60 => 60,
+            Self::Smooth120 | Self::Custom => DEFAULT_TARGET_REFRESH_HZ_U32,
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Stable60 => "Stable60",
+            Self::Smooth120 => "Smooth120",
+            Self::Custom => "Custom",
+        }
+    }
+
+    fn from_label(label: &str) -> Option<Self> {
+        match label {
+            "stable60" | "stable-60" | "60" => Some(Self::Stable60),
+            "smooth120" | "smooth-120" | "120" => Some(Self::Smooth120),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -38,8 +72,11 @@ impl PacerMode {
 
 impl AppOptions {
     pub fn from_args(mut args: impl Iterator<Item = String>) -> Self {
+        let default_profile = RuntimeProfile::Smooth120;
         let mut options = Self {
-            target_refresh_hz: DEFAULT_TARGET_REFRESH_HZ_U32,
+            profile: default_profile,
+            target_refresh_hz: default_profile.target_refresh_hz(),
+            startup_warmup_seconds: DEFAULT_STARTUP_WARMUP_SECONDS,
             diag_seconds: None,
             diag_warmup_seconds: DEFAULT_DIAG_WARMUP_SECONDS,
             clear_only: false,
@@ -66,12 +103,36 @@ impl AppOptions {
                         .and_then(|hz| hz.parse::<u32>().ok())
                         .filter(|hz| *hz > 0)
                         .unwrap_or(options.target_refresh_hz);
+                    options.profile = match options.target_refresh_hz {
+                        60 => RuntimeProfile::Stable60,
+                        120 => RuntimeProfile::Smooth120,
+                        _ => RuntimeProfile::Custom,
+                    };
+                }
+                "--profile" => {
+                    if let Some(profile) = args
+                        .next()
+                        .and_then(|profile| RuntimeProfile::from_label(&profile))
+                    {
+                        options.profile = profile;
+                        options.target_refresh_hz = profile.target_refresh_hz();
+                    }
                 }
                 "--diag-seconds" => {
                     options.diag_seconds = args
                         .next()
                         .and_then(|seconds| seconds.parse::<f64>().ok())
                         .filter(|seconds| *seconds > 0.0);
+                }
+                "--startup-warmup-seconds" => {
+                    options.startup_warmup_seconds = args
+                        .next()
+                        .and_then(|seconds| seconds.parse::<f64>().ok())
+                        .filter(|seconds| *seconds >= 0.0)
+                        .unwrap_or(options.startup_warmup_seconds);
+                }
+                "--no-startup-warmup" => {
+                    options.startup_warmup_seconds = 0.0;
                 }
                 "--diag-warmup-seconds" => {
                     options.diag_warmup_seconds = args

@@ -112,22 +112,19 @@ async fn main() {
     let mut previous_loop_time = get_time() - f64::from(target_dt);
     let app_started_at = get_time();
     let mut hud_font_cache_warmed = false;
-    let mut diag_measurement_started_at =
-        if app_options.diag_seconds.is_some() && app_options.diag_warmup_seconds <= 0.0 {
-            Some(app_started_at)
-        } else {
-            None
-        };
+    let mut diag_measurement_started_at = None;
 
     loop {
         let frame_start = get_time();
+        let startup_warming = frame_start - app_started_at < app_options.startup_warmup_seconds;
         let measured_dt = (frame_start - previous_loop_time) as f32;
         previous_loop_time = frame_start;
         let dt = measured_dt.max(0.0);
         let mut started_diag_measurement_this_frame = false;
         if app_options.diag_seconds.is_some()
             && diag_measurement_started_at.is_none()
-            && frame_start - app_started_at >= app_options.diag_warmup_seconds
+            && frame_start - app_started_at
+                >= app_options.startup_warmup_seconds + app_options.diag_warmup_seconds
         {
             stats.reset();
             if let Some(run_stats) = run_stats.as_mut() {
@@ -155,13 +152,14 @@ async fn main() {
             diag_measurement_started_at = Some(frame_start);
             started_diag_measurement_this_frame = true;
             eprintln!(
-                "[frame-diag] measurement started after {:.1}s warmup",
-                app_options.diag_warmup_seconds,
+                "[frame-diag] measurement started after {:.1}s startup + {:.1}s diag warmup",
+                app_options.startup_warmup_seconds, app_options.diag_warmup_seconds,
             );
         }
         let measurement_enabled =
             app_options.diag_seconds.is_some() || hud_visible || frame_log.enabled();
-        let record_frame = measurement_enabled
+        let record_frame = !startup_warming
+            && measurement_enabled
             && (app_options.diag_seconds.is_none()
                 || (diag_measurement_started_at.is_some() && !started_diag_measurement_this_frame));
         if is_key_pressed(KeyCode::H) {
@@ -202,8 +200,10 @@ async fn main() {
             hud_font_cache_warmed = true;
         }
         if !clear_only {
-            let input = InputState::read();
-            game.update(input, dt);
+            if !startup_warming {
+                let input = InputState::read();
+                game.update(input, dt);
+            }
             game.draw(&assets);
         }
         if record_frame {
@@ -230,11 +230,13 @@ async fn main() {
                 &assets,
                 &stats,
                 HudState {
+                    profile: app_options.profile,
                     scroll_enabled: game.scroll_enabled(),
                     timing_mode: game.timing_mode(),
                     background_mode: game.background_mode(),
                     background_frame_step: game.background_frame_step(),
                     background_last_delta: game.background_last_delta(),
+                    player_speed_scale: game.player_speed_scale(),
                     clear_only,
                     manual_pacer_enabled,
                     pacer_mode: app_options.pacer_mode,

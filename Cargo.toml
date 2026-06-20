@@ -1,5 +1,5 @@
 [package]
-name = "rust-stg"
+name = "macroquad-smooth2d-lab"
 version = "0.1.0"
 edition = "2021"
 

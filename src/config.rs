@@ -1,11 +1,12 @@
 use macroquad::prelude::*;
 
 // Window and target frame timing.
-pub const WINDOW_TITLE: &str = "Rust-STG Frame Pacing Lab";
+pub const WINDOW_TITLE: &str = "Macroquad Smooth2D Lab";
 pub const WINDOW_WIDTH: i32 = 1920;
 pub const WINDOW_HEIGHT: i32 = 1080;
 pub const REFERENCE_GAME_HZ: f32 = 120.0;
 pub const DEFAULT_TARGET_REFRESH_HZ_U32: u32 = 120;
+pub const DEFAULT_STARTUP_WARMUP_SECONDS: f64 = 1.0;
 
 // Test-scene movement.
 pub const PLAYER_SPEED: f32 = 520.0;
@@ -13,6 +14,9 @@ pub const PLAYER_SLOW_SPEED: f32 = 260.0;
 pub const BACKGROUND_SCROLL_SPEED: f32 = 160.0;
 pub const FRAME_STEP_PLAYER_PIXELS: f32 = 4.0;
 pub const FRAME_STEP_PLAYER_SLOW_PIXELS: f32 = 2.0;
+pub const PLAYER_SPEED_SCALE_MIN: f32 = 0.5;
+pub const PLAYER_SPEED_SCALE_MAX: f32 = 2.0;
+pub const PLAYER_SPEED_SCALE_STEP: f32 = 0.25;
 pub const BACKGROUND_STEP_1: f32 = 1.0;
 pub const BACKGROUND_STEP_2: f32 = 2.0;
 pub const BACKGROUND_STEP_3: f32 = 3.0;

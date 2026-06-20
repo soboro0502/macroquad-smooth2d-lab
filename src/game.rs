@@ -45,6 +45,8 @@ pub struct InputState {
     pub toggle_scroll: bool,
     pub toggle_timing_mode: bool,
     pub toggle_background_mode: bool,
+    pub increase_player_speed: bool,
+    pub decrease_player_speed: bool,
     pub selected_background_step: Option<f32>,
 }
 
@@ -74,6 +76,8 @@ impl InputState {
             toggle_scroll: is_key_pressed(KeyCode::Space),
             toggle_timing_mode: is_key_pressed(KeyCode::Tab),
             toggle_background_mode: is_key_pressed(KeyCode::G),
+            increase_player_speed: is_key_pressed(KeyCode::X),
+            decrease_player_speed: is_key_pressed(KeyCode::Z),
             selected_background_step: selected_background_step(),
         }
     }
@@ -121,6 +125,7 @@ pub struct Game {
     timing_mode: TimingMode,
     background_mode: BackgroundMode,
     target_refresh_hz: u32,
+    player_speed_scale: f32,
 }
 
 impl Game {
@@ -138,6 +143,7 @@ impl Game {
             timing_mode: TimingMode::FrameStep,
             background_mode: BackgroundMode::Texture,
             target_refresh_hz,
+            player_speed_scale: 1.0,
         }
     }
 
@@ -166,9 +172,23 @@ impl Game {
         if let Some(frame_step) = input.selected_background_step {
             self.background.set_frame_step(frame_step);
         }
+        if input.decrease_player_speed {
+            self.player_speed_scale =
+                (self.player_speed_scale - PLAYER_SPEED_SCALE_STEP).max(PLAYER_SPEED_SCALE_MIN);
+        }
+        if input.increase_player_speed {
+            self.player_speed_scale =
+                (self.player_speed_scale + PLAYER_SPEED_SCALE_STEP).min(PLAYER_SPEED_SCALE_MAX);
+        }
         let frame_scale = frame_step_scale(self.target_refresh_hz);
         self.background.update(self.timing_mode, dt, frame_scale);
-        self.player.update(input, self.timing_mode, dt, frame_scale);
+        self.player.update(
+            input,
+            self.timing_mode,
+            dt,
+            frame_scale,
+            self.player_speed_scale,
+        );
     }
 
     pub fn draw(&self, assets: &Assets) {
@@ -198,6 +218,10 @@ impl Game {
 
     pub fn background_last_delta(&self) -> f32 {
         self.background.last_delta()
+    }
+
+    pub fn player_speed_scale(&self) -> f32 {
+        self.player_speed_scale
     }
 }
 
@@ -245,7 +269,14 @@ impl Player {
         }
     }
 
-    fn update(&mut self, input: InputState, timing_mode: TimingMode, dt: f32, frame_scale: f32) {
+    fn update(
+        &mut self,
+        input: InputState,
+        timing_mode: TimingMode,
+        dt: f32,
+        frame_scale: f32,
+        speed_scale: f32,
+    ) {
         let speed = if input.slow {
             PLAYER_SLOW_SPEED
         } else {
@@ -257,8 +288,8 @@ impl Player {
             FRAME_STEP_PLAYER_PIXELS
         };
         let distance = match timing_mode {
-            TimingMode::DeltaTime => speed * dt,
-            TimingMode::FrameStep => frame_step * frame_scale,
+            TimingMode::DeltaTime => speed * speed_scale * dt,
+            TimingMode::FrameStep => frame_step * speed_scale * frame_scale,
         };
         self.position += input.axis * distance;
         self.position.x = self

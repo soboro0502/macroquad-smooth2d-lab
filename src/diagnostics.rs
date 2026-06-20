@@ -1,6 +1,6 @@
 use macroquad::prelude::*;
 
-use crate::app_options::PacerMode;
+use crate::app_options::{PacerMode, RuntimeProfile};
 use crate::config::*;
 use crate::frame_log::FrameLog;
 use crate::frame_pacer::PacerSample;
@@ -87,11 +87,13 @@ pub fn draw_frame_marker(frame_marker: FrameMarker) {
 
 #[derive(Clone, Copy)]
 pub struct HudState {
+    pub profile: RuntimeProfile,
     pub scroll_enabled: bool,
     pub timing_mode: TimingMode,
     pub background_mode: BackgroundMode,
     pub background_frame_step: f32,
     pub background_last_delta: f32,
+    pub player_speed_scale: f32,
     pub clear_only: bool,
     pub manual_pacer_enabled: bool,
     pub pacer_mode: PacerMode,
@@ -136,7 +138,8 @@ impl HudTextCache {
         let quality = diagnostic_verdict(snapshot, 1.0 / state.target_refresh_hz as f32);
 
         self.lines[0] = format!(
-            "STATUS Q {} | LOAD {} | PACE {} S {:.2} T {:.2} | CPU {:>5.1}% | LOG {}",
+            "STATUS {} | Q {} | LOAD {} | PACE {} S {:.2} T {:.2} | CPU {:>5.1}% | LOG {}",
+            state.profile.label(),
             quality,
             load,
             pace,
@@ -146,12 +149,13 @@ impl HudTextCache {
             log,
         );
         self.lines[1] = format!(
-            "SCENE  MODE {} | DRAW {} | BG {} | STEP {:.0}px | BGD {:>5.2}",
+            "SCENE  MODE {} | DRAW {} | BG {} | STEP {:.0}px | BGD {:>5.2} | PVEL {:.2}x",
             state.timing_mode.label(),
             state.background_mode.label(),
             scroll,
             state.background_frame_step,
             state.background_last_delta,
+            state.player_speed_scale,
         );
         self.lines[2] = format!(
             "SYNC   next {:>5.2}ms | os {:>5.2}ms | spin {:>5.2}ms | total {:>5.2}ms",
