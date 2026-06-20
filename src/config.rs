@@ -14,7 +14,9 @@ pub const PLAYER_FRAME_COUNT: usize = 5;
 pub const PLAYER_CENTER_FRAME: usize = 2;
 pub const PLAYER_DRAW_SCALE: f32 = 2.0;
 pub const BACKGROUND_DRAW_SCALE: f32 = 2.0;
-pub const STRIPE_HEIGHT: f32 = 48.0;
+pub const PROBE_BAND_HEIGHT: f32 = 180.0;
+pub const PROBE_BAND_GAP: f32 = 140.0;
+pub const PROBE_MARKER_HEIGHT: f32 = 12.0;
 
 pub const ASSET_BG_TEST: &str = "assets/bg_test.png";
 pub const ASSET_PLAYER: &str = "assets/sprites/player_01_64.png";

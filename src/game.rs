@@ -299,15 +299,32 @@ impl ScrollingBackground {
     }
 
     fn draw_stripes(&self) {
-        let rows = (screen_height() / STRIPE_HEIGHT).ceil() as i32 + 2;
+        let cycle = PROBE_BAND_HEIGHT + PROBE_BAND_GAP;
+        let rows = (screen_height() / cycle).ceil() as i32 + 2;
+
         for row in -1..rows {
-            let y = row as f32 * STRIPE_HEIGHT + self.offset % STRIPE_HEIGHT;
-            let color = if row.rem_euclid(2) == 0 {
-                Color::new(0.08, 0.10, 0.15, 1.0)
-            } else {
-                Color::new(0.14, 0.16, 0.22, 1.0)
-            };
-            draw_rectangle(0.0, y, screen_width(), STRIPE_HEIGHT, color);
+            let y = row as f32 * cycle + self.offset % cycle;
+            draw_rectangle(
+                0.0,
+                y,
+                screen_width(),
+                PROBE_BAND_HEIGHT,
+                Color::new(0.10, 0.13, 0.20, 1.0),
+            );
+            draw_rectangle(
+                0.0,
+                y,
+                screen_width(),
+                PROBE_MARKER_HEIGHT,
+                Color::new(0.35, 0.72, 0.95, 1.0),
+            );
+            draw_rectangle(
+                screen_width() * 0.5 - 12.0,
+                y,
+                24.0,
+                PROBE_BAND_HEIGHT,
+                Color::new(0.90, 0.55, 0.20, 1.0),
+            );
         }
     }
 }
