@@ -11,6 +11,7 @@ pub struct FrameStats {
 #[derive(Clone, Copy, Default)]
 pub struct FrameStatsSnapshot {
     pub fps: i32,
+    pub last_ms: f32,
     pub avg_ms: f32,
     pub min_ms: f32,
     pub max_ms: f32,
@@ -75,6 +76,8 @@ impl FrameStats {
 
         FrameStatsSnapshot {
             fps,
+            last_ms: self.samples[(self.next + self.samples.len() - 1) % self.samples.len()]
+                * 1000.0,
             avg_ms: avg * 1000.0,
             min_ms: min * 1000.0,
             max_ms: max * 1000.0,
