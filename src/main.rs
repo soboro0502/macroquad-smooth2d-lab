@@ -131,6 +131,7 @@ async fn main() {
                 game.timing_mode(),
                 game.background_mode(),
                 game.background_frame_step(),
+                game.background_last_delta(),
                 clear_only,
                 manual_pacer_enabled,
                 cpu_stats.percent,
@@ -346,6 +347,7 @@ fn draw_hud(
     timing_mode: TimingMode,
     background_mode: game::BackgroundMode,
     background_frame_step: f32,
+    background_last_delta: f32,
     clear_only: bool,
     manual_pacer_enabled: bool,
     cpu_percent: f32,
@@ -362,7 +364,7 @@ fn draw_hud(
     let log = if frame_log_enabled { "ON" } else { "OFF" };
     let quality = diagnostic_verdict(snapshot);
     let text = format!(
-        "Q {}  LOAD {}  PACE {}  LOG {}  MODE {}  DRAW {}  BGSTEP {:.0}px  CPU {:>5.1}%  fps {:>3}/{:>5.1}  ms last {:>5.2} avg {:>5.2} p95 {:>5.2} p99 {:>5.2} range {:>5.2}-{:>5.2} sd {:>4.2} slow {:>4.1}% spk {:>2} BG {}",
+        "Q {}  LOAD {}  PACE {}  LOG {}  MODE {}  DRAW {}  BGSTEP {:.0}px BGD {:>5.2}  CPU {:>5.1}%  fps {:>3}/{:>5.1}  ms last {:>5.2} avg {:>5.2} p95 {:>5.2} p99 {:>5.2} range {:>5.2}-{:>5.2} sd {:>4.2} slow {:>4.1}% spk {:>2} BG {}",
         quality,
         load,
         pace,
@@ -370,6 +372,7 @@ fn draw_hud(
         timing_mode.label(),
         background_mode.label(),
         background_frame_step,
+        background_last_delta,
         cpu_percent,
         snapshot.fps,
         snapshot.avg_fps,

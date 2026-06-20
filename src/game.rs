@@ -194,6 +194,10 @@ impl Game {
     pub fn background_frame_step(&self) -> f32 {
         self.background.frame_step()
     }
+
+    pub fn background_last_delta(&self) -> f32 {
+        self.background.last_delta()
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -289,6 +293,7 @@ impl Player {
 
 struct ScrollingBackground {
     offset: f32,
+    last_delta: f32,
     tile_height: f32,
     enabled: bool,
     frame_step: f32,
@@ -298,6 +303,7 @@ impl ScrollingBackground {
     fn new(tile_height: f32) -> Self {
         Self {
             offset: 0.0,
+            last_delta: 0.0,
             tile_height,
             enabled: true,
             frame_step: DEFAULT_BACKGROUND_STEP,
@@ -316,13 +322,19 @@ impl ScrollingBackground {
         self.frame_step
     }
 
+    fn last_delta(&self) -> f32 {
+        self.last_delta
+    }
+
     fn update(&mut self, timing_mode: TimingMode, dt: f32) {
+        self.last_delta = 0.0;
         if self.enabled {
             let distance = match timing_mode {
                 TimingMode::DeltaTime => BACKGROUND_SCROLL_SPEED * dt,
                 TimingMode::FrameStep => self.frame_step,
             };
             self.offset += distance;
+            self.last_delta = distance;
         }
     }
 
