@@ -57,8 +57,8 @@ async fn main() {
 }
 
 fn update_spike_flash(spike_flash: f32, dt: f32) -> f32 {
-    let warn_dt = 1.0 / FRAME_WARN_HZ;
-    if dt >= warn_dt {
+    let spike_dt = 1.0 / FRAME_SPIKE_HZ;
+    if dt >= spike_dt {
         FRAME_SPIKE_FLASH_SECONDS
     } else {
         (spike_flash - dt).max(0.0)
