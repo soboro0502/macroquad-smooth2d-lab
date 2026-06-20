@@ -1,7 +1,7 @@
 use macroquad::prelude::*;
 
 // Window and target frame timing.
-pub const WINDOW_TITLE: &str = "Arcade Quality Smooth Engine";
+pub const WINDOW_TITLE: &str = "Rust-STG Frame Pacing Lab";
 pub const WINDOW_WIDTH: i32 = 1920;
 pub const WINDOW_HEIGHT: i32 = 1080;
 pub const TARGET_REFRESH_HZ: f32 = 120.0;
