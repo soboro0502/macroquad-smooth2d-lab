@@ -10,7 +10,7 @@ use cpu_stats::CpuStats;
 use frame_log::FrameLog;
 use frame_pacer::FramePacer;
 use frame_stats::{FrameStats, RunFrameStats};
-use game::{Assets, Game, InputState, TimingMode};
+use game::{Assets, BackgroundMode, Game, InputState, TimingMode};
 use macroquad::miniquad::conf::{AppleGfxApi, Platform};
 use macroquad::prelude::*;
 
@@ -34,6 +34,9 @@ async fn main() {
     let app_options = AppOptions::from_args(std::env::args().skip(1));
     let assets = Assets::load().await;
     let mut game = Game::new(&assets);
+    game.set_timing_mode(app_options.timing_mode);
+    game.set_background_mode(app_options.background_mode);
+    game.set_background_frame_step(app_options.background_frame_step);
     let mut stats = FrameStats::new();
     let mut run_stats = app_options
         .diag_seconds
@@ -43,7 +46,7 @@ async fn main() {
         app_options.diag_seconds.is_some() || std::env::var_os(FRAME_LOG_ENV).is_some(),
     );
     let frame_pacer = FramePacer::new();
-    let mut hud_visible = false;
+    let mut hud_visible = app_options.hud_visible;
     let mut clear_only = app_options.clear_only;
     let mut manual_pacer_enabled = app_options.manual_pacer_enabled;
     let mut previous_loop_time = get_time() - 1.0 / f64::from(TARGET_REFRESH_HZ_U32);
@@ -188,6 +191,10 @@ struct AppOptions {
     diag_warmup_seconds: f64,
     clear_only: bool,
     manual_pacer_enabled: bool,
+    hud_visible: bool,
+    timing_mode: TimingMode,
+    background_mode: BackgroundMode,
+    background_frame_step: f32,
 }
 
 impl AppOptions {
@@ -197,6 +204,10 @@ impl AppOptions {
             diag_warmup_seconds: DEFAULT_DIAG_WARMUP_SECONDS,
             clear_only: false,
             manual_pacer_enabled: DEFAULT_MANUAL_PACER_ENABLED,
+            hud_visible: false,
+            timing_mode: TimingMode::FrameStep,
+            background_mode: BackgroundMode::Texture,
+            background_frame_step: DEFAULT_BACKGROUND_STEP,
         };
 
         while let Some(arg) = args.next() {
@@ -228,6 +239,37 @@ impl AppOptions {
                 }
                 "--diag-auto" => {
                     options.manual_pacer_enabled = false;
+                }
+                "--hud" => {
+                    options.hud_visible = true;
+                }
+                "--visual-check" => {
+                    options.hud_visible = true;
+                    options.timing_mode = TimingMode::FrameStep;
+                    options.background_mode = BackgroundMode::Stripes;
+                    options.background_frame_step = DEFAULT_BACKGROUND_STEP;
+                }
+                "--texture" => {
+                    options.background_mode = BackgroundMode::Texture;
+                }
+                "--probe" => {
+                    options.background_mode = BackgroundMode::ProbeTexture;
+                }
+                "--bands" => {
+                    options.background_mode = BackgroundMode::Stripes;
+                }
+                "--dt" => {
+                    options.timing_mode = TimingMode::DeltaTime;
+                }
+                "--frame" => {
+                    options.timing_mode = TimingMode::FrameStep;
+                }
+                "--bg-step" => {
+                    options.background_frame_step = args
+                        .next()
+                        .and_then(|step| step.parse::<f32>().ok())
+                        .filter(|step| *step > 0.0)
+                        .unwrap_or(options.background_frame_step);
                 }
                 _ => {}
             }

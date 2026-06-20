@@ -141,6 +141,18 @@ impl Game {
         }
     }
 
+    pub fn set_timing_mode(&mut self, timing_mode: TimingMode) {
+        self.timing_mode = timing_mode;
+    }
+
+    pub fn set_background_mode(&mut self, background_mode: BackgroundMode) {
+        self.background_mode = background_mode;
+    }
+
+    pub fn set_background_frame_step(&mut self, frame_step: f32) {
+        self.background.set_frame_step(frame_step);
+    }
+
     pub fn update(&mut self, input: InputState, dt: f32) {
         if input.toggle_timing_mode {
             self.timing_mode = self.timing_mode.toggled();
