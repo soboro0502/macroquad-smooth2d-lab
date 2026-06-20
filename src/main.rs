@@ -40,10 +40,13 @@ async fn main() {
     let mut hud_visible = false;
     let mut clear_only = false;
     let mut manual_pacer_enabled = false;
+    let mut previous_loop_time = get_time() - 1.0 / f64::from(TARGET_REFRESH_HZ_U32);
 
     loop {
         let frame_start = get_time();
-        let dt = get_frame_time();
+        let measured_dt = (frame_start - previous_loop_time) as f32;
+        previous_loop_time = frame_start;
+        let dt = measured_dt.max(0.0);
         if is_key_pressed(KeyCode::H) {
             hud_visible = !hud_visible;
         }
@@ -56,14 +59,14 @@ async fn main() {
         if is_key_pressed(KeyCode::L) {
             frame_log.toggle();
         }
-        stats.record(dt, get_fps(), 1.0 / TARGET_REFRESH_HZ);
+        stats.record(dt, fps_from_dt(dt), 1.0 / TARGET_REFRESH_HZ);
         cpu_stats.update(dt);
         let frame_marker = frame_marker(dt);
         log_frame_marker(
             &frame_log,
             frame_marker,
             dt,
-            get_fps(),
+            fps_from_dt(dt),
             clear_only,
             manual_pacer_enabled,
         );
@@ -97,6 +100,10 @@ async fn main() {
             frame_pacer.wait_until(frame_start, TARGET_REFRESH_HZ_U32);
         }
     }
+}
+
+fn fps_from_dt(dt: f32) -> i32 {
+    (1.0 / dt.max(f32::EPSILON)) as i32
 }
 
 fn log_frame_marker(
