@@ -37,7 +37,17 @@ async fn main() {
     let assets = Assets::load().await;
     let thread_tuning = platform_tuning::set_latency_sensitive_thread();
     if app_options.diag_seconds.is_some() || std::env::var_os(FRAME_LOG_ENV).is_some() {
-        log_thread_tuning(thread_tuning);
+        log_thread_tuning("qos=user-interactive", thread_tuning);
+    }
+    if app_options.time_constraint_enabled {
+        let time_constraint_tuning = platform_tuning::set_time_constraint_thread(
+            1.0 / f64::from(TARGET_REFRESH_HZ_U32),
+            TIME_CONSTRAINT_COMPUTATION_SECS,
+            TIME_CONSTRAINT_CONSTRAINT_SECS,
+        );
+        if app_options.diag_seconds.is_some() || std::env::var_os(FRAME_LOG_ENV).is_some() {
+            log_thread_tuning("time-constraint", time_constraint_tuning);
+        }
     }
     let mut game = Game::new(&assets);
     game.set_timing_mode(app_options.timing_mode);
@@ -201,13 +211,13 @@ fn diag_sample_capacity(diag_seconds: f64) -> usize {
     (diag_seconds * f64::from(TARGET_REFRESH_HZ_U32) * 1.25).ceil() as usize
 }
 
-fn log_thread_tuning(result: ThreadTuningResult) {
+fn log_thread_tuning(label: &'static str, result: ThreadTuningResult) {
     match result {
-        ThreadTuningResult::Applied => eprintln!("[thread-tuning] qos=user-interactive"),
+        ThreadTuningResult::Applied => eprintln!("[thread-tuning] {label}"),
         ThreadTuningResult::Failed(code) => {
-            eprintln!("[thread-tuning] qos=user-interactive failed code={code}");
+            eprintln!("[thread-tuning] {label} failed code={code}");
         }
-        ThreadTuningResult::Unsupported => eprintln!("[thread-tuning] unsupported"),
+        ThreadTuningResult::Unsupported => eprintln!("[thread-tuning] {label} unsupported"),
     }
 }
 
@@ -216,7 +226,8 @@ fn diagnostic_verdict(snapshot: frame_stats::FrameStatsSnapshot) -> &'static str
         return "WAIT";
     }
 
-    if snapshot.p99_ms <= DIAG_PASS_P99_MS
+    if snapshot.max_ms <= DIAG_PASS_MAX_MS
+        && snapshot.p99_ms <= DIAG_PASS_P99_MS
         && snapshot.stdev_ms <= DIAG_PASS_STDEV_MS
         && snapshot.slow_percent <= DIAG_PASS_SLOW_PERCENT
         && snapshot.spike_count <= DIAG_PASS_SPIKES
@@ -236,6 +247,7 @@ struct AppOptions {
     pacer_mode: PacerMode,
     pacer_sleep_margin_secs: f64,
     pacer_sleep_threshold_secs: f64,
+    time_constraint_enabled: bool,
     hud_visible: bool,
     timing_mode: TimingMode,
     background_mode: BackgroundMode,
@@ -267,6 +279,7 @@ impl AppOptions {
             pacer_mode: PacerMode::Spin,
             pacer_sleep_margin_secs: PACER_SLEEP_MARGIN_SECS,
             pacer_sleep_threshold_secs: PACER_SLEEP_THRESHOLD_SECS,
+            time_constraint_enabled: false,
             hud_visible: false,
             timing_mode: TimingMode::FrameStep,
             background_mode: BackgroundMode::Texture,
@@ -326,6 +339,9 @@ impl AppOptions {
                         .filter(|threshold| *threshold >= 0.0)
                         .map(|threshold| threshold / 1000.0)
                         .unwrap_or(options.pacer_sleep_threshold_secs);
+                }
+                "--time-constraint" => {
+                    options.time_constraint_enabled = true;
                 }
                 "--hud" => {
                     options.hud_visible = true;
