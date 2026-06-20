@@ -108,7 +108,9 @@ impl Game {
 
         Self {
             player: Player::new(start, source_size),
-            background: ScrollingBackground::new(assets.background.height()),
+            background: ScrollingBackground::new(
+                assets.background.height() * BACKGROUND_DRAW_SCALE,
+            ),
             timing_mode: TimingMode::FrameStep,
         }
     }
@@ -234,17 +236,22 @@ impl ScrollingBackground {
     }
 
     fn draw(&self, texture: &Texture2D) {
-        let tile_width = texture.width();
+        let tile_width = texture.width() * BACKGROUND_DRAW_SCALE;
+        let tile_size = vec2(tile_width, self.tile_height);
         let columns = (screen_width() / tile_width).ceil() as i32 + 1;
         let rows = (screen_height() / self.tile_height).ceil() as i32 + 2;
 
         for row in -1..rows {
             for column in 0..columns {
-                draw_texture(
+                draw_texture_ex(
                     texture,
                     column as f32 * tile_width,
                     row as f32 * self.tile_height + self.offset,
                     WHITE,
+                    DrawTextureParams {
+                        dest_size: Some(tile_size),
+                        ..Default::default()
+                    },
                 );
             }
         }
