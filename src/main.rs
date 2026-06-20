@@ -248,7 +248,7 @@ impl AppOptions {
             diag_warmup_seconds: DEFAULT_DIAG_WARMUP_SECONDS,
             clear_only: false,
             manual_pacer_enabled: DEFAULT_MANUAL_PACER_ENABLED,
-            pacer_mode: PacerMode::SleepSpin,
+            pacer_mode: PacerMode::Spin,
             pacer_sleep_margin_secs: PACER_SLEEP_MARGIN_SECS,
             pacer_sleep_threshold_secs: PACER_SLEEP_THRESHOLD_SECS,
             hud_visible: false,
@@ -292,6 +292,7 @@ impl AppOptions {
                     options.pacer_mode = PacerMode::Spin;
                 }
                 "--sleep-pacer" => {
+                    options.manual_pacer_enabled = true;
                     options.pacer_mode = PacerMode::SleepSpin;
                 }
                 "--pacer-margin-ms" => {
