@@ -38,7 +38,13 @@ async fn main() {
         game.draw(&assets);
 
         if hud_visible {
-            draw_hud(&assets, &stats, game.scroll_enabled(), game.timing_mode());
+            draw_hud(
+                &assets,
+                &stats,
+                game.scroll_enabled(),
+                game.timing_mode(),
+                game.background_mode(),
+            );
             stats.record(dt, get_fps(), 1.0 / TARGET_REFRESH_HZ);
         }
 
@@ -46,12 +52,19 @@ async fn main() {
     }
 }
 
-fn draw_hud(assets: &Assets, stats: &FrameStats, scroll_enabled: bool, timing_mode: TimingMode) {
+fn draw_hud(
+    assets: &Assets,
+    stats: &FrameStats,
+    scroll_enabled: bool,
+    timing_mode: TimingMode,
+    background_mode: game::BackgroundMode,
+) {
     let snapshot = stats.snapshot;
     let scroll = if scroll_enabled { "ON" } else { "OFF" };
     let text = format!(
-        "MODE {}  fps {:>3}  avg {:>5.2}ms  range {:>5.2}-{:>5.2}  sd {:>4.2}  slow {:>4.1}%  spikes {:>2}  BG {}",
+        "MODE {}  DRAW {}  fps {:>3}  avg {:>5.2}ms  range {:>5.2}-{:>5.2}  sd {:>4.2}  slow {:>4.1}%  spikes {:>2}  BG {}",
         timing_mode.label(),
+        background_mode.label(),
         snapshot.fps,
         snapshot.avg_ms,
         snapshot.min_ms,

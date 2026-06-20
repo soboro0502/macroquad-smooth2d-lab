@@ -38,6 +38,7 @@ pub struct InputState {
     pub slow: bool,
     pub toggle_scroll: bool,
     pub toggle_timing_mode: bool,
+    pub toggle_background_mode: bool,
 }
 
 impl InputState {
@@ -65,6 +66,7 @@ impl InputState {
             slow: is_key_down(KeyCode::LeftShift) || is_key_down(KeyCode::RightShift),
             toggle_scroll: is_key_pressed(KeyCode::Space),
             toggle_timing_mode: is_key_pressed(KeyCode::Tab),
+            toggle_background_mode: is_key_pressed(KeyCode::G),
         }
     }
 }
@@ -95,6 +97,7 @@ pub struct Game {
     player: Player,
     background: ScrollingBackground,
     timing_mode: TimingMode,
+    background_mode: BackgroundMode,
 }
 
 impl Game {
@@ -112,12 +115,16 @@ impl Game {
                 assets.background.height() * BACKGROUND_DRAW_SCALE,
             ),
             timing_mode: TimingMode::FrameStep,
+            background_mode: BackgroundMode::Texture,
         }
     }
 
     pub fn update(&mut self, input: InputState, dt: f32) {
         if input.toggle_timing_mode {
             self.timing_mode = self.timing_mode.toggled();
+        }
+        if input.toggle_background_mode {
+            self.background_mode = self.background_mode.toggled();
         }
         if input.toggle_scroll {
             self.background.toggle();
@@ -127,7 +134,8 @@ impl Game {
     }
 
     pub fn draw(&self, assets: &Assets) {
-        self.background.draw(&assets.background);
+        self.background
+            .draw(&assets.background, self.background_mode);
         self.player.draw(&assets.player);
     }
 
@@ -137,6 +145,32 @@ impl Game {
 
     pub fn timing_mode(&self) -> TimingMode {
         self.timing_mode
+    }
+
+    pub fn background_mode(&self) -> BackgroundMode {
+        self.background_mode
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum BackgroundMode {
+    Texture,
+    Stripes,
+}
+
+impl BackgroundMode {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Texture => "TEX",
+            Self::Stripes => "STRIPE",
+        }
+    }
+
+    fn toggled(self) -> Self {
+        match self {
+            Self::Texture => Self::Stripes,
+            Self::Stripes => Self::Texture,
+        }
     }
 }
 
@@ -235,7 +269,14 @@ impl ScrollingBackground {
         }
     }
 
-    fn draw(&self, texture: &Texture2D) {
+    fn draw(&self, texture: &Texture2D, mode: BackgroundMode) {
+        match mode {
+            BackgroundMode::Texture => self.draw_texture_tiles(texture),
+            BackgroundMode::Stripes => self.draw_stripes(),
+        }
+    }
+
+    fn draw_texture_tiles(&self, texture: &Texture2D) {
         let tile_width = texture.width() * BACKGROUND_DRAW_SCALE;
         let tile_size = vec2(tile_width, self.tile_height);
         let columns = (screen_width() / tile_width).ceil() as i32 + 1;
@@ -254,6 +295,19 @@ impl ScrollingBackground {
                     },
                 );
             }
+        }
+    }
+
+    fn draw_stripes(&self) {
+        let rows = (screen_height() / STRIPE_HEIGHT).ceil() as i32 + 2;
+        for row in -1..rows {
+            let y = row as f32 * STRIPE_HEIGHT + self.offset % STRIPE_HEIGHT;
+            let color = if row.rem_euclid(2) == 0 {
+                Color::new(0.08, 0.10, 0.15, 1.0)
+            } else {
+                Color::new(0.14, 0.16, 0.22, 1.0)
+            };
+            draw_rectangle(0.0, y, screen_width(), STRIPE_HEIGHT, color);
         }
     }
 }
