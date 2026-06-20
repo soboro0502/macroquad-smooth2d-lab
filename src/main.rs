@@ -279,7 +279,7 @@ impl AppOptions {
             pacer_mode: PacerMode::Spin,
             pacer_sleep_margin_secs: PACER_SLEEP_MARGIN_SECS,
             pacer_sleep_threshold_secs: PACER_SLEEP_THRESHOLD_SECS,
-            time_constraint_enabled: false,
+            time_constraint_enabled: DEFAULT_TIME_CONSTRAINT_ENABLED,
             hud_visible: false,
             timing_mode: TimingMode::FrameStep,
             background_mode: BackgroundMode::Texture,
@@ -342,6 +342,9 @@ impl AppOptions {
                 }
                 "--time-constraint" => {
                     options.time_constraint_enabled = true;
+                }
+                "--no-time-constraint" => {
+                    options.time_constraint_enabled = false;
                 }
                 "--hud" => {
                     options.hud_visible = true;
