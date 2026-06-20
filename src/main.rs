@@ -146,6 +146,7 @@ async fn main() {
                 clear_only,
                 manual_pacer_enabled,
                 app_options.pacer_mode,
+                app_options.pacer_sleep_margin_secs,
                 cpu_stats.percent,
                 frame_log.enabled(),
             );
@@ -177,7 +178,11 @@ async fn main() {
         next_frame().await;
         if manual_pacer_enabled {
             match app_options.pacer_mode {
-                PacerMode::SleepSpin => frame_pacer.wait_until(frame_start, TARGET_REFRESH_HZ_U32),
+                PacerMode::SleepSpin => frame_pacer.wait_until(
+                    frame_start,
+                    TARGET_REFRESH_HZ_U32,
+                    app_options.pacer_sleep_margin_secs,
+                ),
                 PacerMode::Spin => frame_pacer.spin_until(frame_start, TARGET_REFRESH_HZ_U32),
             }
         }
@@ -211,6 +216,7 @@ struct AppOptions {
     clear_only: bool,
     manual_pacer_enabled: bool,
     pacer_mode: PacerMode,
+    pacer_sleep_margin_secs: f64,
     hud_visible: bool,
     timing_mode: TimingMode,
     background_mode: BackgroundMode,
@@ -240,6 +246,7 @@ impl AppOptions {
             clear_only: false,
             manual_pacer_enabled: DEFAULT_MANUAL_PACER_ENABLED,
             pacer_mode: PacerMode::SleepSpin,
+            pacer_sleep_margin_secs: PACER_SLEEP_MARGIN_SECS,
             hud_visible: false,
             timing_mode: TimingMode::FrameStep,
             background_mode: BackgroundMode::Texture,
@@ -282,6 +289,14 @@ impl AppOptions {
                 }
                 "--sleep-pacer" => {
                     options.pacer_mode = PacerMode::SleepSpin;
+                }
+                "--pacer-margin-ms" => {
+                    options.pacer_sleep_margin_secs = args
+                        .next()
+                        .and_then(|margin| margin.parse::<f64>().ok())
+                        .filter(|margin| *margin >= 0.0)
+                        .map(|margin| margin / 1000.0)
+                        .unwrap_or(options.pacer_sleep_margin_secs);
                 }
                 "--hud" => {
                     options.hud_visible = true;
@@ -393,6 +408,7 @@ fn draw_hud(
     clear_only: bool,
     manual_pacer_enabled: bool,
     pacer_mode: PacerMode,
+    pacer_sleep_margin_secs: f64,
     cpu_percent: f32,
     frame_log_enabled: bool,
 ) {
@@ -407,10 +423,11 @@ fn draw_hud(
     let log = if frame_log_enabled { "ON" } else { "OFF" };
     let quality = diagnostic_verdict(snapshot);
     let text = format!(
-        "Q {}  LOAD {}  PACE {}  LOG {}  MODE {}  DRAW {}  BGSTEP {:.0}px BGD {:>5.2}  CPU {:>5.1}%  fps {:>3}/{:>5.1}  ms last {:>5.2} avg {:>5.2} p95 {:>5.2} p99 {:>5.2} range {:>5.2}-{:>5.2} sd {:>4.2} slow {:>4.1}% spk {:>2} BG {}",
+        "Q {}  LOAD {}  PACE {} M {:.2}  LOG {}  MODE {}  DRAW {}  BGSTEP {:.0}px BGD {:>5.2}  CPU {:>5.1}%  fps {:>3}/{:>5.1}  ms last {:>5.2} avg {:>5.2} p95 {:>5.2} p99 {:>5.2} range {:>5.2}-{:>5.2} sd {:>4.2} slow {:>4.1}% spk {:>2} BG {}",
         quality,
         load,
         pace,
+        pacer_sleep_margin_secs * 1000.0,
         log,
         timing_mode.label(),
         background_mode.label(),
