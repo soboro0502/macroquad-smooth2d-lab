@@ -23,6 +23,7 @@ mod imp {
     use super::ThreadTuningResult;
 
     pub fn set_latency_sensitive_thread() -> ThreadTuningResult {
+        // Tell macOS this thread is latency-sensitive UI/game work.
         let result = unsafe {
             libc::pthread_set_qos_class_self_np(libc::qos_class_t::QOS_CLASS_USER_INTERACTIVE, 0)
         };
@@ -39,6 +40,8 @@ mod imp {
         computation_secs: f64,
         constraint_secs: f64,
     ) -> ThreadTuningResult {
+        // Mach time-constraint policy is the macOS-specific part that removed
+        // rare 10-11 ms presentation spikes in this test project.
         let mut policy = libc::thread_time_constraint_policy {
             period: seconds_to_ticks(period_secs),
             computation: seconds_to_ticks(computation_secs),

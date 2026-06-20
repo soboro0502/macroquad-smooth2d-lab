@@ -1,17 +1,24 @@
+mod app_options;
 mod config;
 mod cpu_stats;
+mod diagnostics;
 mod frame_log;
 mod frame_pacer;
 mod frame_stats;
 mod game;
 mod platform_tuning;
 
+use app_options::{AppOptions, PacerMode};
 use config::*;
 use cpu_stats::CpuStats;
+use diagnostics::{
+    diagnostic_verdict, draw_frame_marker, draw_hud, fps_from_dt, frame_marker, log_frame_marker,
+    FrameMarker, HudState,
+};
 use frame_log::FrameLog;
 use frame_pacer::FramePacer;
 use frame_stats::{FrameStats, RunFrameStats, RunValueStats};
-use game::{Assets, BackgroundMode, Game, InputState, TimingMode};
+use game::{Assets, Game, InputState};
 use macroquad::miniquad::conf::{AppleGfxApi, Platform};
 use macroquad::prelude::*;
 use platform_tuning::ThreadTuningResult;
@@ -154,18 +161,20 @@ async fn main() {
             draw_hud(
                 &assets,
                 &stats,
-                game.scroll_enabled(),
-                game.timing_mode(),
-                game.background_mode(),
-                game.background_frame_step(),
-                game.background_last_delta(),
-                clear_only,
-                manual_pacer_enabled,
-                app_options.pacer_mode,
-                app_options.pacer_sleep_margin_secs,
-                app_options.pacer_sleep_threshold_secs,
-                cpu_stats.percent,
-                frame_log.enabled(),
+                HudState {
+                    scroll_enabled: game.scroll_enabled(),
+                    timing_mode: game.timing_mode(),
+                    background_mode: game.background_mode(),
+                    background_frame_step: game.background_frame_step(),
+                    background_last_delta: game.background_last_delta(),
+                    clear_only,
+                    manual_pacer_enabled,
+                    pacer_mode: app_options.pacer_mode,
+                    pacer_sleep_margin_secs: app_options.pacer_sleep_margin_secs,
+                    pacer_sleep_threshold_secs: app_options.pacer_sleep_threshold_secs,
+                    cpu_percent: cpu_stats.percent,
+                    frame_log_enabled: frame_log.enabled(),
+                },
             );
         }
         if record_frame {
@@ -219,301 +228,4 @@ fn log_thread_tuning(label: &'static str, result: ThreadTuningResult) {
         }
         ThreadTuningResult::Unsupported => eprintln!("[thread-tuning] {label} unsupported"),
     }
-}
-
-fn diagnostic_verdict(snapshot: frame_stats::FrameStatsSnapshot) -> &'static str {
-    if snapshot.avg_ms <= 0.0 {
-        return "WAIT";
-    }
-
-    if snapshot.max_ms <= DIAG_PASS_MAX_MS
-        && snapshot.p99_ms <= DIAG_PASS_P99_MS
-        && snapshot.stdev_ms <= DIAG_PASS_STDEV_MS
-        && snapshot.slow_percent <= DIAG_PASS_SLOW_PERCENT
-        && snapshot.spike_count <= DIAG_PASS_SPIKES
-    {
-        "PASS"
-    } else {
-        "WARN"
-    }
-}
-
-#[derive(Clone, Copy)]
-struct AppOptions {
-    diag_seconds: Option<f64>,
-    diag_warmup_seconds: f64,
-    clear_only: bool,
-    manual_pacer_enabled: bool,
-    pacer_mode: PacerMode,
-    pacer_sleep_margin_secs: f64,
-    pacer_sleep_threshold_secs: f64,
-    time_constraint_enabled: bool,
-    hud_visible: bool,
-    timing_mode: TimingMode,
-    background_mode: BackgroundMode,
-    background_frame_step: f32,
-}
-
-#[derive(Clone, Copy)]
-enum PacerMode {
-    SleepSpin,
-    Spin,
-}
-
-impl PacerMode {
-    fn label(self) -> &'static str {
-        match self {
-            Self::SleepSpin => "SLEEP",
-            Self::Spin => "SPIN",
-        }
-    }
-}
-
-impl AppOptions {
-    fn from_args(mut args: impl Iterator<Item = String>) -> Self {
-        let mut options = Self {
-            diag_seconds: None,
-            diag_warmup_seconds: DEFAULT_DIAG_WARMUP_SECONDS,
-            clear_only: false,
-            manual_pacer_enabled: DEFAULT_MANUAL_PACER_ENABLED,
-            pacer_mode: PacerMode::Spin,
-            pacer_sleep_margin_secs: PACER_SLEEP_MARGIN_SECS,
-            pacer_sleep_threshold_secs: PACER_SLEEP_THRESHOLD_SECS,
-            time_constraint_enabled: DEFAULT_TIME_CONSTRAINT_ENABLED,
-            hud_visible: false,
-            timing_mode: TimingMode::FrameStep,
-            background_mode: BackgroundMode::Texture,
-            background_frame_step: DEFAULT_BACKGROUND_STEP,
-        };
-
-        while let Some(arg) = args.next() {
-            match arg.as_str() {
-                "--diag" => {
-                    options.diag_seconds = Some(DEFAULT_DIAG_SECONDS);
-                }
-                "--diag-seconds" => {
-                    options.diag_seconds = args
-                        .next()
-                        .and_then(|seconds| seconds.parse::<f64>().ok())
-                        .filter(|seconds| *seconds > 0.0);
-                }
-                "--diag-warmup-seconds" => {
-                    options.diag_warmup_seconds = args
-                        .next()
-                        .and_then(|seconds| seconds.parse::<f64>().ok())
-                        .filter(|seconds| *seconds >= 0.0)
-                        .unwrap_or(options.diag_warmup_seconds);
-                }
-                "--diag-no-warmup" => {
-                    options.diag_warmup_seconds = 0.0;
-                }
-                "--diag-clear" => {
-                    options.clear_only = true;
-                }
-                "--diag-manual" => {
-                    options.manual_pacer_enabled = true;
-                }
-                "--diag-auto" => {
-                    options.manual_pacer_enabled = false;
-                }
-                "--spin-pacer" => {
-                    options.manual_pacer_enabled = true;
-                    options.pacer_mode = PacerMode::Spin;
-                }
-                "--sleep-pacer" => {
-                    options.manual_pacer_enabled = true;
-                    options.pacer_mode = PacerMode::SleepSpin;
-                }
-                "--pacer-margin-ms" => {
-                    options.pacer_sleep_margin_secs = args
-                        .next()
-                        .and_then(|margin| margin.parse::<f64>().ok())
-                        .filter(|margin| *margin >= 0.0)
-                        .map(|margin| margin / 1000.0)
-                        .unwrap_or(options.pacer_sleep_margin_secs);
-                }
-                "--pacer-sleep-threshold-ms" => {
-                    options.pacer_sleep_threshold_secs = args
-                        .next()
-                        .and_then(|threshold| threshold.parse::<f64>().ok())
-                        .filter(|threshold| *threshold >= 0.0)
-                        .map(|threshold| threshold / 1000.0)
-                        .unwrap_or(options.pacer_sleep_threshold_secs);
-                }
-                "--time-constraint" => {
-                    options.time_constraint_enabled = true;
-                }
-                "--no-time-constraint" => {
-                    options.time_constraint_enabled = false;
-                }
-                "--hud" => {
-                    options.hud_visible = true;
-                }
-                "--visual-check" => {
-                    options.hud_visible = true;
-                    options.timing_mode = TimingMode::FrameStep;
-                    options.background_mode = BackgroundMode::Stripes;
-                    options.background_frame_step = DEFAULT_BACKGROUND_STEP;
-                }
-                "--texture" => {
-                    options.background_mode = BackgroundMode::Texture;
-                }
-                "--probe" => {
-                    options.background_mode = BackgroundMode::ProbeTexture;
-                }
-                "--bands" => {
-                    options.background_mode = BackgroundMode::Stripes;
-                }
-                "--dt" => {
-                    options.timing_mode = TimingMode::DeltaTime;
-                }
-                "--frame" => {
-                    options.timing_mode = TimingMode::FrameStep;
-                }
-                "--bg-step" => {
-                    options.background_frame_step = args
-                        .next()
-                        .and_then(|step| step.parse::<f32>().ok())
-                        .filter(|step| *step > 0.0)
-                        .unwrap_or(options.background_frame_step);
-                }
-                _ => {}
-            }
-        }
-
-        options
-    }
-}
-
-fn fps_from_dt(dt: f32) -> i32 {
-    (1.0 / dt.max(f32::EPSILON)) as i32
-}
-
-fn log_frame_marker(
-    frame_log: &FrameLog,
-    frame_marker: FrameMarker,
-    dt: f32,
-    fps: i32,
-    clear_only: bool,
-    manual_pacer_enabled: bool,
-) {
-    match frame_marker {
-        FrameMarker::None => {}
-        FrameMarker::Slow => {
-            frame_log.event("slow", dt, fps, clear_only, manual_pacer_enabled);
-        }
-        FrameMarker::Fast => {
-            frame_log.event("fast", dt, fps, clear_only, manual_pacer_enabled);
-        }
-    }
-}
-
-#[derive(Clone, Copy, Eq, PartialEq)]
-enum FrameMarker {
-    None,
-    Slow,
-    Fast,
-}
-
-fn frame_marker(dt: f32) -> FrameMarker {
-    if dt >= 1.0 / FRAME_SPIKE_HZ {
-        FrameMarker::Slow
-    } else if dt <= 1.0 / FRAME_FAST_HZ {
-        FrameMarker::Fast
-    } else {
-        FrameMarker::None
-    }
-}
-
-fn draw_frame_marker(frame_marker: FrameMarker) {
-    let (x, color) = match frame_marker {
-        FrameMarker::None => return,
-        FrameMarker::Slow => (FRAME_MARKER_MARGIN, Color::new(1.0, 0.08, 0.08, 0.9)),
-        FrameMarker::Fast => (
-            FRAME_MARKER_MARGIN + FRAME_SPIKE_MARKER_SIZE + FRAME_MARKER_GAP,
-            Color::new(0.08, 0.45, 1.0, 0.9),
-        ),
-    };
-    let y = screen_height() - FRAME_MARKER_MARGIN - FRAME_SPIKE_MARKER_SIZE;
-
-    draw_rectangle(
-        x,
-        y,
-        FRAME_SPIKE_MARKER_SIZE,
-        FRAME_SPIKE_MARKER_SIZE,
-        color,
-    );
-}
-
-fn draw_hud(
-    assets: &Assets,
-    stats: &FrameStats,
-    scroll_enabled: bool,
-    timing_mode: TimingMode,
-    background_mode: game::BackgroundMode,
-    background_frame_step: f32,
-    background_last_delta: f32,
-    clear_only: bool,
-    manual_pacer_enabled: bool,
-    pacer_mode: PacerMode,
-    pacer_sleep_margin_secs: f64,
-    pacer_sleep_threshold_secs: f64,
-    cpu_percent: f32,
-    frame_log_enabled: bool,
-) {
-    let snapshot = stats.snapshot;
-    let scroll = if scroll_enabled { "ON" } else { "OFF" };
-    let load = if clear_only { "CLEAR" } else { "FULL" };
-    let pace = if manual_pacer_enabled {
-        pacer_mode.label()
-    } else {
-        "AUTO"
-    };
-    let log = if frame_log_enabled { "ON" } else { "OFF" };
-    let quality = diagnostic_verdict(snapshot);
-    let text = format!(
-        "Q {}  LOAD {}  PACE {} M {:.2} T {:.2}  LOG {}  MODE {}  DRAW {}  BGSTEP {:.0}px BGD {:>5.2}  CPU {:>5.1}%  fps {:>3}/{:>5.1}  ms last {:>5.2} avg {:>5.2} p95 {:>5.2} p99 {:>5.2} range {:>5.2}-{:>5.2} sd {:>4.2} slow {:>4.1}% spk {:>2} BG {}",
-        quality,
-        load,
-        pace,
-        pacer_sleep_margin_secs * 1000.0,
-        pacer_sleep_threshold_secs * 1000.0,
-        log,
-        timing_mode.label(),
-        background_mode.label(),
-        background_frame_step,
-        background_last_delta,
-        cpu_percent,
-        snapshot.fps,
-        snapshot.avg_fps,
-        snapshot.last_ms,
-        snapshot.avg_ms,
-        snapshot.p95_ms,
-        snapshot.p99_ms,
-        snapshot.min_ms,
-        snapshot.max_ms,
-        snapshot.stdev_ms,
-        snapshot.slow_percent,
-        snapshot.spike_count,
-        scroll
-    );
-
-    draw_rectangle(
-        8.0,
-        8.0,
-        screen_width() - 16.0,
-        30.0,
-        Color::new(0.0, 0.0, 0.0, 0.55),
-    );
-    draw_text_ex(
-        &text,
-        14.0,
-        30.0,
-        TextParams {
-            font: Some(&assets.font),
-            font_size: HUD_FONT_SIZE,
-            color: WHITE,
-            ..Default::default()
-        },
-    );
 }
