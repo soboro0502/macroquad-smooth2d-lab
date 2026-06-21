@@ -26,6 +26,12 @@ impl PacerSample {
 
 pub struct FramePacer;
 
+impl Default for FramePacer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FramePacer {
     pub fn new() -> Self {
         Self

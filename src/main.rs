@@ -1,27 +1,21 @@
 mod app_options;
-mod config;
-mod cpu_stats;
 mod diagnostics;
-mod frame_log;
-mod frame_pacer;
-mod frame_stats;
 mod game;
-mod platform_tuning;
 
 use app_options::{AppOptions, PacerMode};
-use config::*;
-use cpu_stats::CpuStats;
 use diagnostics::{
     diagnostic_verdict, draw_frame_marker, draw_hud, fps_from_dt, frame_marker, log_frame_marker,
     warm_hud_font_cache, FrameMarker, HudState, HudTextCache,
 };
-use frame_log::FrameLog;
-use frame_pacer::{FramePacer, PacerSample};
-use frame_stats::{FrameStats, RunFrameStats, RunValueStats};
 use game::{Assets, Game, InputState};
 use macroquad::miniquad::conf::{AppleGfxApi, Platform};
 use macroquad::prelude::*;
-use platform_tuning::ThreadTuningResult;
+use macroquad_smooth2d_lab::config::*;
+use macroquad_smooth2d_lab::cpu_stats::CpuStats;
+use macroquad_smooth2d_lab::frame_log::FrameLog;
+use macroquad_smooth2d_lab::frame_pacer::{FramePacer, PacerSample};
+use macroquad_smooth2d_lab::frame_stats::{FrameStats, RunFrameStats, RunValueStats};
+use macroquad_smooth2d_lab::platform_tuning::{self, ThreadTuningResult};
 
 fn window_conf() -> Conf {
     Conf {

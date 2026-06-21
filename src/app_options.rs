@@ -1,5 +1,5 @@
-use crate::config::*;
 use crate::game::{BackgroundMode, TimingMode};
+use macroquad_smooth2d_lab::config::*;
 
 #[derive(Clone, Copy)]
 pub struct AppOptions {

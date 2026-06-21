@@ -129,6 +129,12 @@ impl FrameStats {
     }
 }
 
+impl Default for FrameStats {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 fn build_value_snapshot(samples: &[f32]) -> ValueStatsSnapshot {
     if samples.is_empty() {
         return ValueStatsSnapshot::default();

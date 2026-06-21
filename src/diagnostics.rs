@@ -1,10 +1,10 @@
 use macroquad::prelude::*;
+use macroquad_smooth2d_lab::config::*;
+use macroquad_smooth2d_lab::frame_log::FrameLog;
+use macroquad_smooth2d_lab::frame_pacer::PacerSample;
+use macroquad_smooth2d_lab::frame_stats::{FrameStats, FrameStatsSnapshot};
 
 use crate::app_options::{PacerMode, RuntimeProfile};
-use crate::config::*;
-use crate::frame_log::FrameLog;
-use crate::frame_pacer::PacerSample;
-use crate::frame_stats::{FrameStats, FrameStatsSnapshot};
 use crate::game::{Assets, BackgroundMode, DiagonalMode, TimingMode};
 
 pub fn fps_from_dt(dt: f32) -> i32 {

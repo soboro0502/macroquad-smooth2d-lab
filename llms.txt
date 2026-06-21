@@ -29,8 +29,9 @@ The project favors measured frame timing over average FPS.
 ## Current Scope
 
 This repository is a runnable reference application and investigation asset. It
-is not yet a finalized reusable library API. The internal structure may change
-without notice while reusable timing and diagnostics modules are extracted.
+now exposes an experimental `src/lib.rs` entry point, but it is not yet a
+finalized reusable library API. The internal structure may change without notice
+while reusable timing and diagnostics modules are extracted.
 
 ## Known Limitations
 
@@ -65,17 +66,20 @@ should be treated as new test targets.
 
 - `README.md`: user-facing overview, commands, controls, and findings
 - `docs/frame_pacing_asset.md`: detailed frame pacing investigation notes
+- `src/lib.rs`: experimental reusable library entry point
 - `src/main.rs`: application loop and measurement orchestration
 - `src/frame_pacer.rs`: manual frame pacing helpers
 - `src/frame_stats.rs`: frame interval statistics
 - `src/diagnostics.rs`: HUD, markers, and diagnostic output
 - `src/game.rs`: smooth scrolling and sprite movement test scene
+- `examples/basic_pacing.rs`: minimal external-use example
 
 ## Common Commands
 
 ```bash
 ./run.sh --profile stable60
 ./run.sh --profile smooth120
+cargo run --release --example basic_pacing
 ./run.sh --diag-seconds 60 --visual-check --profile stable60
 ./run.sh --diag-seconds 120 --visual-check --profile smooth120
 ./check.sh

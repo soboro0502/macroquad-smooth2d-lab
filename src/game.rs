@@ -1,6 +1,5 @@
 use macroquad::prelude::*;
-
-use crate::config::*;
+use macroquad_smooth2d_lab::config::*;
 
 pub struct Assets {
     pub background: Texture2D,

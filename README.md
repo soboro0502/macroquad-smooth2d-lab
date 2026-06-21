@@ -52,7 +52,8 @@ and spikes.
 ## Current Scope
 
 This repository is currently a runnable reference application and investigation
-asset. It is not yet a finalized reusable library API.
+asset. It now exposes an experimental Rust library entry point, but it is not
+yet a finalized reusable library API.
 
 The current value is the measured frame pacing loop, the diagnostic HUD, the
 60Hz/120Hz profiles, and the notes about what changed visible motion quality.
@@ -107,6 +108,34 @@ Current profiles:
 | `smooth120` | 120 Hz | Motion-quality profile. Player movement feels better, but present timing must be watched. |
 
 The default `./run.sh` uses `smooth120`.
+
+## Experimental Library API
+
+The crate exposes early reusable modules through `src/lib.rs`:
+
+```rust
+use macroquad_smooth2d_lab::prelude::*;
+```
+
+Currently exposed:
+
+- `FramePacer`
+- `PacerSample`
+- `FrameStats`
+- `RunFrameStats`
+- `RunValueStats`
+- `CpuStats`
+- `FrameLog`
+- macOS thread tuning helpers
+
+Minimal example:
+
+```bash
+cargo run --release --example basic_pacing
+```
+
+The library API is experimental and may change while the project is separated
+from the bundled demo scene.
 
 ## What It Does
 
