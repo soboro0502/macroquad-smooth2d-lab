@@ -7,6 +7,10 @@ investigation milestones rather than stable library API changes.
 
 ## [Unreleased]
 
+### Added
+
+- Optional `--stress-sprites <count>` draw-load mode for sprite throughput tests.
+
 ## [0.1.1] - 2026-06-21
 
 ### Added

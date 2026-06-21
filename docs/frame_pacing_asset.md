@@ -108,6 +108,7 @@ next_frame_ms avg=0.756 range=0.602-2.595
 | `--startup-warmup-seconds <sec>` | 起動直後ウォームアップ時間 |
 | `--no-startup-warmup` | 起動ウォームアップ無効 |
 | `--bg-step <px>` | 背景frame-step量 |
+| `--stress-sprites <count>` | 中央フレームのスプライトを指定枚数だけ追加描画 |
 | `--frame` | frame-step mode |
 | `--dt` | delta-time mode |
 | `--texture` | 通常背景 |
@@ -240,6 +241,23 @@ time constraint を外して比較する場合:
 ```
 
 ただし、これらは検証用であり、安定デフォルトではない。
+
+## スプライト負荷テスト
+
+`--stress-sprites <count>` は、現在のシーンへ同一スプライトの中央フレームを指定枚数だけ追加描画する。更新ロジックは増やさず、描画呼び出しの負荷を測るための診断モード。
+
+```bash
+./run.sh --profile smooth120 --diag-seconds 30 --diag-warmup-seconds 5 --visual-check --hud --stress-sprites 20000
+```
+
+2026-06-21 のローカル実測:
+
+- 120Hz / 20,000 sprites / 30秒: PASS, avg=8.334ms, range=8.334-8.626ms, sd=0.007ms, cpu=37.9%
+- 120Hz / 23,000 sprites / 30秒: PASS, max=9.004ms
+- 120Hz / 24,000 sprites / 30秒: PASS, max=8.798ms
+- 120Hz / 25,000 sprites / 30秒: WARN, max=9.922ms
+
+この結果では、現構成のローカル上限目安は 120Hz で約24,000 sprites。公開資料や実ゲーム設計の安全側基準は、再テストでもPASSした約20,000 spritesに置く。境界付近はOSイベントや `next_frame` の戻り遅れで崩れやすい。
 
 ## 主要ファイル
 

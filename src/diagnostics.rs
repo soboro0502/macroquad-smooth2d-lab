@@ -95,6 +95,7 @@ pub struct HudState {
     pub background_frame_step: f32,
     pub background_last_delta: f32,
     pub player_speed_scale: f32,
+    pub stress_sprite_count: usize,
     pub clear_only: bool,
     pub manual_pacer_enabled: bool,
     pub pacer_mode: PacerMode,
@@ -150,7 +151,7 @@ impl HudTextCache {
             log,
         );
         self.lines[1] = format!(
-            "SCENE  MODE {} | DIAG {} | DRAW {} | BG {} | STEP {:.0}px | BGD {:>5.2} | PVEL {:.2}x",
+            "SCENE  MODE {} | DIAG {} | DRAW {} | BG {} | STEP {:.0}px | BGD {:>5.2} | PVEL {:.2}x | SPR {}",
             state.timing_mode.label(),
             state.diagonal_mode.label(),
             state.background_mode.label(),
@@ -158,6 +159,7 @@ impl HudTextCache {
             state.background_frame_step,
             state.background_last_delta,
             state.player_speed_scale,
+            state.stress_sprite_count,
         );
         self.lines[2] = format!(
             "SYNC   next {:>5.2}ms | os {:>5.2}ms | spin {:>5.2}ms | total {:>5.2}ms",
@@ -253,7 +255,7 @@ fn hud_row_colors(index: usize) -> (Color, Color) {
 
 pub fn warm_hud_font_cache(assets: &Assets) {
     draw_text_ex(
-        "STATUS SCENE SYNC FRAME STABLE Q PASS WARN WAIT LOAD CLEAR FULL PACE MACH SLEEP SPIN AUTO LOG ON OFF CPU MODE DIAG NORM RAW LAST DRAW TEX PROBE BANDS STEP BGD next total ms slow spk BG 0123456789.-/%|",
+        "STATUS SCENE SYNC FRAME STABLE Q PASS WARN WAIT LOAD CLEAR FULL PACE MACH SLEEP SPIN AUTO LOG ON OFF CPU MODE DIAG NORM RAW LAST DRAW TEX PROBE BANDS STEP BGD PVEL SPR next total ms slow spk BG 0123456789.-/%|",
         0.0,
         0.0,
         TextParams {

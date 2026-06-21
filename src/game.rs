@@ -204,6 +204,7 @@ enum VerticalPriority {
 
 pub struct Game {
     player: Player,
+    stress_sprites: StressSprites,
     background: ScrollingBackground,
     timing_mode: TimingMode,
     diagonal_mode: DiagonalMode,
@@ -226,6 +227,7 @@ impl Game {
 
         Self {
             player: Player::new(start, source_size),
+            stress_sprites: StressSprites::new(source_size),
             background: ScrollingBackground::new(),
             timing_mode: TimingMode::FrameStep,
             diagonal_mode: DiagonalMode::Raw,
@@ -248,6 +250,10 @@ impl Game {
 
     pub fn set_background_frame_step(&mut self, frame_step: f32) {
         self.background.set_frame_step(frame_step);
+    }
+
+    pub fn set_stress_sprite_count(&mut self, count: usize) {
+        self.stress_sprites.set_count(count);
     }
 
     pub fn update(&mut self, input: InputState, dt: f32) {
@@ -349,6 +355,7 @@ impl Game {
             &assets.probe_background,
             self.background_mode,
         );
+        self.stress_sprites.draw(&assets.player);
         self.player.draw(&assets.player);
     }
 
@@ -378,6 +385,10 @@ impl Game {
 
     pub fn player_speed_scale(&self) -> f32 {
         self.player_speed_scale
+    }
+
+    pub fn stress_sprite_count(&self) -> usize {
+        self.stress_sprites.count()
     }
 }
 
@@ -502,6 +513,75 @@ impl Player {
                 ..Default::default()
             },
         );
+    }
+}
+
+struct StressSprites {
+    source_size: Vec2,
+    draw_size: Vec2,
+    positions: Vec<Vec2>,
+}
+
+impl StressSprites {
+    fn new(source_size: Vec2) -> Self {
+        Self {
+            source_size,
+            draw_size: source_size * STRESS_SPRITE_DRAW_SCALE,
+            positions: Vec::new(),
+        }
+    }
+
+    fn set_count(&mut self, count: usize) {
+        self.positions.clear();
+        self.positions.reserve(count);
+
+        let stride = self.draw_size + vec2(STRESS_SPRITE_GRID_GAP, STRESS_SPRITE_GRID_GAP);
+        let columns = (screen_width() / stride.x).floor().max(1.0) as usize;
+        let rows = (screen_height() / stride.y).floor().max(1.0) as usize;
+        let cells_per_layer = (columns * rows).max(1);
+
+        for index in 0..count {
+            let layer = index / cells_per_layer;
+            let cell = index % cells_per_layer;
+            let column = cell % columns;
+            let row = cell / columns;
+            let layer_offset = layer as f32 * STRESS_SPRITE_LAYER_OFFSET;
+            self.positions.push(vec2(
+                column as f32 * stride.x + layer_offset,
+                row as f32 * stride.y + layer_offset,
+            ));
+        }
+    }
+
+    fn count(&self) -> usize {
+        self.positions.len()
+    }
+
+    fn draw(&self, texture: &Texture2D) {
+        if self.positions.is_empty() {
+            return;
+        }
+
+        let source = Rect::new(
+            self.source_size.x * PLAYER_CENTER_FRAME as f32,
+            0.0,
+            self.source_size.x,
+            self.source_size.y,
+        );
+
+        for position in &self.positions {
+            draw_texture_ex(
+                texture,
+                position.x,
+                position.y,
+                WHITE,
+                DrawTextureParams {
+                    source: Some(source),
+                    dest_size: Some(self.draw_size),
+                    ..Default::default()
+                },
+            );
+        }
     }
 }
 

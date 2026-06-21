@@ -19,6 +19,7 @@ pub struct AppOptions {
     pub timing_mode: TimingMode,
     pub background_mode: BackgroundMode,
     pub background_frame_step: f32,
+    pub stress_sprite_count: usize,
 }
 
 #[derive(Clone, Copy)]
@@ -90,6 +91,7 @@ impl AppOptions {
             timing_mode: TimingMode::FrameStep,
             background_mode: BackgroundMode::Texture,
             background_frame_step: DEFAULT_BACKGROUND_STEP,
+            stress_sprite_count: DEFAULT_STRESS_SPRITE_COUNT,
         };
 
         while let Some(arg) = args.next() {
@@ -233,6 +235,12 @@ impl AppOptions {
                         .and_then(|step| step.parse::<f32>().ok())
                         .filter(|step| *step > 0.0)
                         .unwrap_or(options.background_frame_step);
+                }
+                "--stress-sprites" | "--stress" => {
+                    options.stress_sprite_count = args
+                        .next()
+                        .and_then(|count| count.parse::<usize>().ok())
+                        .unwrap_or(options.stress_sprite_count);
                 }
                 _ => {}
             }

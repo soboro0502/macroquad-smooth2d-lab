@@ -247,6 +247,12 @@ Manual tuning:
 ./run.sh --diag-manual
 ```
 
+Sprite stress test:
+
+```bash
+./run.sh --profile smooth120 --diag-seconds 10 --visual-check --hud --stress-sprites 1000
+```
+
 macOS thread tuning:
 
 ```bash

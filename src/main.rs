@@ -120,6 +120,7 @@ async fn main() {
     game.set_timing_mode(app_options.timing_mode);
     game.set_background_mode(app_options.background_mode);
     game.set_background_frame_step(app_options.background_frame_step);
+    game.set_stress_sprite_count(app_options.stress_sprite_count);
     let mut stats = FrameStats::new();
     let mut diag_session = app_options
         .diag_seconds
@@ -244,6 +245,7 @@ async fn main() {
                     background_frame_step: game.background_frame_step(),
                     background_last_delta: game.background_last_delta(),
                     player_speed_scale: game.player_speed_scale(),
+                    stress_sprite_count: game.stress_sprite_count(),
                     clear_only,
                     manual_pacer_enabled,
                     pacer_mode: app_options.pacer_mode,
