@@ -121,7 +121,6 @@ impl TimingMode {
 pub enum DiagonalMode {
     Normalized,
     Raw,
-    AxisLock,
 }
 
 impl DiagonalMode {
@@ -129,15 +128,13 @@ impl DiagonalMode {
         match self {
             Self::Normalized => "NORM",
             Self::Raw => "RAW",
-            Self::AxisLock => "LOCK",
         }
     }
 
     fn toggled(self) -> Self {
         match self {
             Self::Normalized => Self::Raw,
-            Self::Raw => Self::AxisLock,
-            Self::AxisLock => Self::Normalized,
+            Self::Raw => Self::Normalized,
         }
     }
 
@@ -149,13 +146,6 @@ impl DiagonalMode {
         match self {
             Self::Normalized => axis.normalize(),
             Self::Raw => axis,
-            Self::AxisLock => {
-                if axis.y != 0.0 {
-                    vec2(0.0, axis.y)
-                } else {
-                    axis
-                }
-            }
         }
     }
 }
