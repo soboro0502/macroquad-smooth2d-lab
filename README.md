@@ -127,6 +127,7 @@ The default `./run.sh` uses `smooth120`.
 | `X` | Increase player speed scale |
 | Space | Toggle background scroll |
 | `Tab` | Toggle timing mode: frame-step / delta-time |
+| `V` | Toggle diagonal movement mode: normalized / raw / axis-lock |
 | `G` | Change background diagnostic mode |
 | `1` / `2` / `3` / `4` | Set background frame-step amount |
 | `H` | Toggle HUD |
@@ -244,7 +245,7 @@ Smooth 120 Hz:
 The HUD is intentionally dense. It is for frame pacing investigation, not final game UI.
 
 - `STATUS`: profile, verdict, load, pacer, CPU, log state
-- `SCENE`: movement mode, background mode, scroll state, background step, last background delta, player velocity scale
+- `SCENE`: movement mode, diagonal movement mode, background mode, scroll state, background step, last background delta, player velocity scale
 - `SYNC`: `next_frame`, OS wait, spin wait, total pacer wait
 - `FRAME`: target Hz, instantaneous FPS, average FPS, last/average/p95/p99 frame ms
 - `STABLE`: min/max frame ms, standard deviation, slow-frame %, spike count

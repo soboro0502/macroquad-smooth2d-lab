@@ -233,6 +233,7 @@ async fn main() {
                     profile: app_options.profile,
                     scroll_enabled: game.scroll_enabled(),
                     timing_mode: game.timing_mode(),
+                    diagonal_mode: game.diagonal_mode(),
                     background_mode: game.background_mode(),
                     background_frame_step: game.background_frame_step(),
                     background_last_delta: game.background_last_delta(),

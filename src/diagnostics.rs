@@ -5,7 +5,7 @@ use crate::config::*;
 use crate::frame_log::FrameLog;
 use crate::frame_pacer::PacerSample;
 use crate::frame_stats::{FrameStats, FrameStatsSnapshot};
-use crate::game::{Assets, BackgroundMode, TimingMode};
+use crate::game::{Assets, BackgroundMode, DiagonalMode, TimingMode};
 
 pub fn fps_from_dt(dt: f32) -> i32 {
     (1.0 / dt.max(f32::EPSILON)) as i32
@@ -90,6 +90,7 @@ pub struct HudState {
     pub profile: RuntimeProfile,
     pub scroll_enabled: bool,
     pub timing_mode: TimingMode,
+    pub diagonal_mode: DiagonalMode,
     pub background_mode: BackgroundMode,
     pub background_frame_step: f32,
     pub background_last_delta: f32,
@@ -149,8 +150,9 @@ impl HudTextCache {
             log,
         );
         self.lines[1] = format!(
-            "SCENE  MODE {} | DRAW {} | BG {} | STEP {:.0}px | BGD {:>5.2} | PVEL {:.2}x",
+            "SCENE  MODE {} | DIAG {} | DRAW {} | BG {} | STEP {:.0}px | BGD {:>5.2} | PVEL {:.2}x",
             state.timing_mode.label(),
+            state.diagonal_mode.label(),
             state.background_mode.label(),
             scroll,
             state.background_frame_step,
@@ -228,7 +230,7 @@ pub fn draw_hud(
 
 pub fn warm_hud_font_cache(assets: &Assets) {
     draw_text_ex(
-        "STATUS SCENE SYNC FRAME STABLE Q PASS WARN WAIT LOAD CLEAR FULL PACE MACH SLEEP SPIN AUTO LOG ON OFF CPU MODE DRAW TEX PROBE BANDS STEP BGD next total ms slow spk BG 0123456789.-/%|",
+        "STATUS SCENE SYNC FRAME STABLE Q PASS WARN WAIT LOAD CLEAR FULL PACE MACH SLEEP SPIN AUTO LOG ON OFF CPU MODE DIAG NORM RAW LOCK DRAW TEX PROBE BANDS STEP BGD next total ms slow spk BG 0123456789.-/%|",
         0.0,
         0.0,
         TextParams {

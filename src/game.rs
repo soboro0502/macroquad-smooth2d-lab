@@ -44,6 +44,7 @@ pub struct InputState {
     pub slow: bool,
     pub toggle_scroll: bool,
     pub toggle_timing_mode: bool,
+    pub toggle_diagonal_mode: bool,
     pub toggle_background_mode: bool,
     pub increase_player_speed: bool,
     pub decrease_player_speed: bool,
@@ -66,15 +67,12 @@ impl InputState {
         if is_key_down(KeyCode::Down) || is_key_down(KeyCode::S) {
             axis.y += 1.0;
         }
-        if axis.length_squared() > 1.0 {
-            axis = axis.normalize();
-        }
-
         Self {
             axis,
             slow: is_key_down(KeyCode::LeftShift) || is_key_down(KeyCode::RightShift),
             toggle_scroll: is_key_pressed(KeyCode::Space),
             toggle_timing_mode: is_key_pressed(KeyCode::Tab),
+            toggle_diagonal_mode: is_key_pressed(KeyCode::V),
             toggle_background_mode: is_key_pressed(KeyCode::G),
             increase_player_speed: is_key_pressed(KeyCode::X),
             decrease_player_speed: is_key_pressed(KeyCode::Z),
@@ -119,10 +117,54 @@ impl TimingMode {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DiagonalMode {
+    Normalized,
+    Raw,
+    AxisLock,
+}
+
+impl DiagonalMode {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Normalized => "NORM",
+            Self::Raw => "RAW",
+            Self::AxisLock => "LOCK",
+        }
+    }
+
+    fn toggled(self) -> Self {
+        match self {
+            Self::Normalized => Self::Raw,
+            Self::Raw => Self::AxisLock,
+            Self::AxisLock => Self::Normalized,
+        }
+    }
+
+    fn apply(self, axis: Vec2) -> Vec2 {
+        if axis.length_squared() <= 1.0 {
+            return axis;
+        }
+
+        match self {
+            Self::Normalized => axis.normalize(),
+            Self::Raw => axis,
+            Self::AxisLock => {
+                if axis.y != 0.0 {
+                    vec2(0.0, axis.y)
+                } else {
+                    axis
+                }
+            }
+        }
+    }
+}
+
 pub struct Game {
     player: Player,
     background: ScrollingBackground,
     timing_mode: TimingMode,
+    diagonal_mode: DiagonalMode,
     background_mode: BackgroundMode,
     target_refresh_hz: u32,
     player_speed_scale: f32,
@@ -141,6 +183,7 @@ impl Game {
             player: Player::new(start, source_size),
             background: ScrollingBackground::new(),
             timing_mode: TimingMode::FrameStep,
+            diagonal_mode: DiagonalMode::Normalized,
             background_mode: BackgroundMode::Texture,
             target_refresh_hz,
             player_speed_scale: 1.0,
@@ -162,6 +205,9 @@ impl Game {
     pub fn update(&mut self, input: InputState, dt: f32) {
         if input.toggle_timing_mode {
             self.timing_mode = self.timing_mode.toggled();
+        }
+        if input.toggle_diagonal_mode {
+            self.diagonal_mode = self.diagonal_mode.toggled();
         }
         if input.toggle_background_mode {
             self.background_mode = self.background_mode.toggled();
@@ -188,6 +234,7 @@ impl Game {
             dt,
             frame_scale,
             self.player_speed_scale,
+            self.diagonal_mode,
         );
     }
 
@@ -206,6 +253,10 @@ impl Game {
 
     pub fn timing_mode(&self) -> TimingMode {
         self.timing_mode
+    }
+
+    pub fn diagonal_mode(&self) -> DiagonalMode {
+        self.diagonal_mode
     }
 
     pub fn background_mode(&self) -> BackgroundMode {
@@ -276,6 +327,7 @@ impl Player {
         dt: f32,
         frame_scale: f32,
         speed_scale: f32,
+        diagonal_mode: DiagonalMode,
     ) {
         let speed = if input.slow {
             PLAYER_SLOW_SPEED
@@ -291,7 +343,7 @@ impl Player {
             TimingMode::DeltaTime => speed * speed_scale * dt,
             TimingMode::FrameStep => frame_step * speed_scale * frame_scale,
         };
-        self.position += input.axis * distance;
+        self.position += diagonal_mode.apply(input.axis) * distance;
         self.position.x = self
             .position
             .x

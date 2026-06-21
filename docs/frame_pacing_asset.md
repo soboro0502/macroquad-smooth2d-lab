@@ -133,6 +133,7 @@ next_frame_ms avg=0.756 range=0.602-2.595
 | `Z` / `X` | 自機速度倍率を下げる / 上げる |
 | Space | 背景スクロールON/OFF |
 | `Tab` | frame-step / delta-time切り替え |
+| `V` | 斜め移動モード切り替え: normalized / raw / axis-lock |
 | `G` | 背景モード切り替え |
 | `1`-`4` | 背景frame-step量切り替え |
 | `H` | HUD表示切り替え |
@@ -145,7 +146,7 @@ next_frame_ms avg=0.756 range=0.602-2.595
 HUDは検証用であり、ゲーム内UIではない。
 
 - `STATUS`: プロファイル、判定、描画負荷、pacer、CPU、ログ状態
-- `SCENE`: 移動モード、背景モード、背景step、背景delta、自機速度倍率
+- `SCENE`: 移動モード、斜め移動モード、背景モード、背景step、背景delta、自機速度倍率
 - `SYNC`: `next_frame` / OS wait / spin / total wait
 - `FRAME`: target Hz、FPS、平均、last/p95/p99 ms
 - `STABLE`: min/max、標準偏差、slow%、spike数
