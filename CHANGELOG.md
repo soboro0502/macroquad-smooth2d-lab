@@ -7,9 +7,16 @@ investigation milestones rather than stable library API changes.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-06-21
+
 ### Added
 
 - `LAST` movement mode for last-pressed direction and axis priority.
+
+### Changed
+
+- Lowered the default balanced pacer spin margin from 4.5ms to 3.0ms to reduce
+  CPU usage while keeping the current 120Hz diagnostic run stable.
 
 ## [0.1.0-experimental.1] - 2026-06-21
 

@@ -241,7 +241,7 @@ Visual inspection:
 Manual tuning:
 
 ```bash
-./run.sh --pacer-margin-ms 4.5
+./run.sh --pacer-margin-ms 3.0
 ./run.sh --pacer-sleep-threshold-ms 6.2
 ./run.sh --diag-auto
 ./run.sh --diag-manual
