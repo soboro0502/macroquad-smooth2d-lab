@@ -162,9 +162,9 @@ impl DiagonalMode {
 
     fn toggled(self) -> Self {
         match self {
-            Self::Raw => Self::Normalized,
-            Self::Normalized => Self::LastAxis,
-            Self::LastAxis => Self::Raw,
+            Self::Normalized => Self::Raw,
+            Self::Raw => Self::LastAxis,
+            Self::LastAxis => Self::Normalized,
         }
     }
 
@@ -230,7 +230,7 @@ impl Game {
             stress_sprites: StressSprites::new(source_size),
             background: ScrollingBackground::new(),
             timing_mode: TimingMode::FrameStep,
-            diagonal_mode: DiagonalMode::Raw,
+            diagonal_mode: DiagonalMode::Normalized,
             last_axis_priority: LastAxisPriority::Horizontal,
             last_horizontal_priority: HorizontalPriority::Right,
             last_vertical_priority: VerticalPriority::Down,

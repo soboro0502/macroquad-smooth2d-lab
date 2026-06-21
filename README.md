@@ -162,7 +162,7 @@ from the bundled demo scene.
 | `X` | Increase player speed scale |
 | Space | Toggle background scroll |
 | `Tab` | Toggle timing mode: frame-step / delta-time |
-| `V` | Toggle diagonal movement mode: raw default / normalized / last-axis |
+| `V` | Toggle diagonal movement mode: normalized default / raw / last-axis |
 | `G` | Change background diagnostic mode |
 | `1` / `2` / `3` / `4` | Set background frame-step amount |
 | `H` | Toggle HUD |
@@ -172,9 +172,9 @@ from the bundled demo scene.
 
 Diagonal movement modes:
 
+- `NORM`: normalizes diagonal input. Overall movement speed remains constant.
 - `RAW`: preserves the direct input vector. Diagonal movement is faster, but the
   sprite advances in visually even per-axis steps.
-- `NORM`: normalizes diagonal input. Overall movement speed remains constant.
 - `LAST`: resolves directional conflicts by last input priority. Left/right and
   up/down overlaps keep the last pressed direction, and diagonal input resolves
   to the last pressed axis.

@@ -11,6 +11,10 @@ investigation milestones rather than stable library API changes.
 
 - Optional `--stress-sprites <count>` draw-load mode for sprite throughput tests.
 
+### Changed
+
+- Changed the default diagonal movement mode from `RAW` to `NORM`.
+
 ## [0.1.1] - 2026-06-21
 
 ### Added

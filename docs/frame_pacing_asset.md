@@ -134,7 +134,7 @@ next_frame_ms avg=0.756 range=0.602-2.595
 | `Z` / `X` | 自機速度倍率を下げる / 上げる |
 | Space | 背景スクロールON/OFF |
 | `Tab` | frame-step / delta-time切り替え |
-| `V` | 斜め移動モード切り替え: raw default / normalized / last-axis |
+| `V` | 斜め移動モード切り替え: normalized default / raw / last-axis |
 | `G` | 背景モード切り替え |
 | `1`-`4` | 背景frame-step量切り替え |
 | `H` | HUD表示切り替え |
