@@ -253,7 +253,7 @@ fn hud_row_colors(index: usize) -> (Color, Color) {
 
 pub fn warm_hud_font_cache(assets: &Assets) {
     draw_text_ex(
-        "STATUS SCENE SYNC FRAME STABLE Q PASS WARN WAIT LOAD CLEAR FULL PACE MACH SLEEP SPIN AUTO LOG ON OFF CPU MODE DIAG NORM RAW DRAW TEX PROBE BANDS STEP BGD next total ms slow spk BG 0123456789.-/%|",
+        "STATUS SCENE SYNC FRAME STABLE Q PASS WARN WAIT LOAD CLEAR FULL PACE MACH SLEEP SPIN AUTO LOG ON OFF CPU MODE DIAG NORM RAW LAST DRAW TEX PROBE BANDS STEP BGD next total ms slow spk BG 0123456789.-/%|",
         0.0,
         0.0,
         TextParams {

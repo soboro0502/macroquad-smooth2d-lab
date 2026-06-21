@@ -40,6 +40,8 @@ impl Assets {
 #[derive(Clone, Copy, Default)]
 pub struct InputState {
     pub axis: Vec2,
+    pub horizontal_just_pressed: bool,
+    pub vertical_just_pressed: bool,
     pub slow: bool,
     pub toggle_scroll: bool,
     pub toggle_timing_mode: bool,
@@ -53,21 +55,33 @@ pub struct InputState {
 impl InputState {
     pub fn read() -> Self {
         let mut axis = Vec2::ZERO;
+        let left_down = is_key_down(KeyCode::Left) || is_key_down(KeyCode::A);
+        let right_down = is_key_down(KeyCode::Right) || is_key_down(KeyCode::D);
+        let up_down = is_key_down(KeyCode::Up) || is_key_down(KeyCode::W);
+        let down_down = is_key_down(KeyCode::Down) || is_key_down(KeyCode::S);
 
-        if is_key_down(KeyCode::Left) || is_key_down(KeyCode::A) {
+        if left_down {
             axis.x -= 1.0;
         }
-        if is_key_down(KeyCode::Right) || is_key_down(KeyCode::D) {
+        if right_down {
             axis.x += 1.0;
         }
-        if is_key_down(KeyCode::Up) || is_key_down(KeyCode::W) {
+        if up_down {
             axis.y -= 1.0;
         }
-        if is_key_down(KeyCode::Down) || is_key_down(KeyCode::S) {
+        if down_down {
             axis.y += 1.0;
         }
         Self {
             axis,
+            horizontal_just_pressed: is_key_pressed(KeyCode::Left)
+                || is_key_pressed(KeyCode::A)
+                || is_key_pressed(KeyCode::Right)
+                || is_key_pressed(KeyCode::D),
+            vertical_just_pressed: is_key_pressed(KeyCode::Up)
+                || is_key_pressed(KeyCode::W)
+                || is_key_pressed(KeyCode::Down)
+                || is_key_pressed(KeyCode::S),
             slow: is_key_down(KeyCode::LeftShift) || is_key_down(KeyCode::RightShift),
             toggle_scroll: is_key_pressed(KeyCode::Space),
             toggle_timing_mode: is_key_pressed(KeyCode::Tab),
@@ -120,6 +134,7 @@ impl TimingMode {
 pub enum DiagonalMode {
     Normalized,
     Raw,
+    LastAxis,
 }
 
 impl DiagonalMode {
@@ -127,17 +142,19 @@ impl DiagonalMode {
         match self {
             Self::Normalized => "NORM",
             Self::Raw => "RAW",
+            Self::LastAxis => "LAST",
         }
     }
 
     fn toggled(self) -> Self {
         match self {
-            Self::Normalized => Self::Raw,
             Self::Raw => Self::Normalized,
+            Self::Normalized => Self::LastAxis,
+            Self::LastAxis => Self::Raw,
         }
     }
 
-    fn apply(self, axis: Vec2) -> Vec2 {
+    fn apply(self, axis: Vec2, last_axis_priority: LastAxisPriority) -> Vec2 {
         if axis.length_squared() <= 1.0 {
             return axis;
         }
@@ -145,8 +162,18 @@ impl DiagonalMode {
         match self {
             Self::Normalized => axis.normalize(),
             Self::Raw => axis,
+            Self::LastAxis => match last_axis_priority {
+                LastAxisPriority::Horizontal => vec2(axis.x, 0.0),
+                LastAxisPriority::Vertical => vec2(0.0, axis.y),
+            },
         }
     }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum LastAxisPriority {
+    Horizontal,
+    Vertical,
 }
 
 pub struct Game {
@@ -154,6 +181,7 @@ pub struct Game {
     background: ScrollingBackground,
     timing_mode: TimingMode,
     diagonal_mode: DiagonalMode,
+    last_axis_priority: LastAxisPriority,
     background_mode: BackgroundMode,
     target_refresh_hz: u32,
     player_speed_scale: f32,
@@ -173,6 +201,7 @@ impl Game {
             background: ScrollingBackground::new(),
             timing_mode: TimingMode::FrameStep,
             diagonal_mode: DiagonalMode::Raw,
+            last_axis_priority: LastAxisPriority::Horizontal,
             background_mode: BackgroundMode::Texture,
             target_refresh_hz,
             player_speed_scale: 1.0,
@@ -201,6 +230,7 @@ impl Game {
         if input.toggle_background_mode {
             self.background_mode = self.background_mode.toggled();
         }
+        self.update_last_axis_priority(input);
         if input.toggle_scroll {
             self.background.toggle();
         }
@@ -219,12 +249,23 @@ impl Game {
         self.background.update(self.timing_mode, dt, frame_scale);
         self.player.update(
             input,
-            self.timing_mode,
+            PlayerMotion {
+                timing_mode: self.timing_mode,
+                diagonal_mode: self.diagonal_mode,
+                last_axis_priority: self.last_axis_priority,
+                speed_scale: self.player_speed_scale,
+                frame_scale,
+            },
             dt,
-            frame_scale,
-            self.player_speed_scale,
-            self.diagonal_mode,
         );
+    }
+
+    fn update_last_axis_priority(&mut self, input: InputState) {
+        match (input.horizontal_just_pressed, input.vertical_just_pressed) {
+            (true, false) => self.last_axis_priority = LastAxisPriority::Horizontal,
+            (false, true) => self.last_axis_priority = LastAxisPriority::Vertical,
+            _ => {}
+        }
     }
 
     pub fn draw(&self, assets: &Assets) {
@@ -298,6 +339,15 @@ struct Player {
     lean_frame_elapsed: f32,
 }
 
+#[derive(Clone, Copy)]
+struct PlayerMotion {
+    timing_mode: TimingMode,
+    diagonal_mode: DiagonalMode,
+    last_axis_priority: LastAxisPriority,
+    speed_scale: f32,
+    frame_scale: f32,
+}
+
 impl Player {
     fn new(position: Vec2, source_size: Vec2) -> Self {
         Self {
@@ -309,15 +359,7 @@ impl Player {
         }
     }
 
-    fn update(
-        &mut self,
-        input: InputState,
-        timing_mode: TimingMode,
-        dt: f32,
-        frame_scale: f32,
-        speed_scale: f32,
-        diagonal_mode: DiagonalMode,
-    ) {
+    fn update(&mut self, input: InputState, motion: PlayerMotion, dt: f32) {
         let speed = if input.slow {
             PLAYER_SLOW_SPEED
         } else {
@@ -328,11 +370,14 @@ impl Player {
         } else {
             FRAME_STEP_PLAYER_PIXELS
         };
-        let distance = match timing_mode {
-            TimingMode::DeltaTime => speed * speed_scale * dt,
-            TimingMode::FrameStep => frame_step * speed_scale * frame_scale,
+        let distance = match motion.timing_mode {
+            TimingMode::DeltaTime => speed * motion.speed_scale * dt,
+            TimingMode::FrameStep => frame_step * motion.speed_scale * motion.frame_scale,
         };
-        self.position += diagonal_mode.apply(input.axis) * distance;
+        let movement_axis = motion
+            .diagonal_mode
+            .apply(input.axis, motion.last_axis_priority);
+        self.position += movement_axis * distance;
         self.position.x = self
             .position
             .x
@@ -341,7 +386,7 @@ impl Player {
             .position
             .y
             .clamp(0.0, screen_height() - self.draw_size.y);
-        self.update_lean_frame(target_frame_for_axis(input.axis.x), dt);
+        self.update_lean_frame(target_frame_for_axis(movement_axis.x), dt);
     }
 
     fn update_lean_frame(&mut self, target_frame: usize, dt: f32) {

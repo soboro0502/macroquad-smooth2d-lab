@@ -162,13 +162,22 @@ from the bundled demo scene.
 | `X` | Increase player speed scale |
 | Space | Toggle background scroll |
 | `Tab` | Toggle timing mode: frame-step / delta-time |
-| `V` | Toggle diagonal movement mode: raw default / normalized |
+| `V` | Toggle diagonal movement mode: raw default / normalized / last-axis |
 | `G` | Change background diagnostic mode |
 | `1` / `2` / `3` / `4` | Set background frame-step amount |
 | `H` | Toggle HUD |
 | `C` | Toggle clear-only load mode |
 | `P` | Toggle manual pacer |
 | `L` | Toggle frame event log |
+
+Diagonal movement modes:
+
+- `RAW`: preserves the direct input vector. Diagonal movement is faster, but the
+  sprite advances in visually even per-axis steps.
+- `NORM`: normalizes diagonal input. Overall movement speed remains constant.
+- `LAST`: resolves diagonal input to the last pressed axis. This is useful for
+  games that should avoid diagonal movement while still accepting overlapping
+  directional key presses.
 
 ## Command Options
 
@@ -280,7 +289,7 @@ Smooth 120 Hz:
 The HUD is intentionally dense. It is for frame pacing investigation, not final game UI.
 
 - `STATUS`: profile, verdict, load, pacer, CPU, log state
-- `SCENE`: movement mode, diagonal movement mode, background mode, scroll state, background step, last background delta, player velocity scale
+- `SCENE`: movement mode, diagonal movement mode (`RAW`, `NORM`, `LAST`), background mode, scroll state, background step, last background delta, player velocity scale
 - `SYNC`: `next_frame`, OS wait, spin wait, total pacer wait
 - `FRAME`: target Hz, instantaneous FPS, average FPS, last/average/p95/p99 frame ms
 - `STABLE`: min/max frame ms, standard deviation, slow-frame %, spike count
