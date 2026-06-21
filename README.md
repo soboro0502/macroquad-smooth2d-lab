@@ -175,9 +175,9 @@ Diagonal movement modes:
 - `RAW`: preserves the direct input vector. Diagonal movement is faster, but the
   sprite advances in visually even per-axis steps.
 - `NORM`: normalizes diagonal input. Overall movement speed remains constant.
-- `LAST`: resolves diagonal input to the last pressed axis. This is useful for
-  games that should avoid diagonal movement while still accepting overlapping
-  directional key presses.
+- `LAST`: resolves directional conflicts by last input priority. Left/right and
+  up/down overlaps keep the last pressed direction, and diagonal input resolves
+  to the last pressed axis.
 
 ## Command Options
 

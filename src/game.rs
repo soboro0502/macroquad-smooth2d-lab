@@ -40,6 +40,14 @@ impl Assets {
 #[derive(Clone, Copy, Default)]
 pub struct InputState {
     pub axis: Vec2,
+    pub left_down: bool,
+    pub right_down: bool,
+    pub up_down: bool,
+    pub down_down: bool,
+    pub left_just_pressed: bool,
+    pub right_just_pressed: bool,
+    pub up_just_pressed: bool,
+    pub down_just_pressed: bool,
     pub horizontal_just_pressed: bool,
     pub vertical_just_pressed: bool,
     pub slow: bool,
@@ -59,6 +67,10 @@ impl InputState {
         let right_down = is_key_down(KeyCode::Right) || is_key_down(KeyCode::D);
         let up_down = is_key_down(KeyCode::Up) || is_key_down(KeyCode::W);
         let down_down = is_key_down(KeyCode::Down) || is_key_down(KeyCode::S);
+        let left_just_pressed = is_key_pressed(KeyCode::Left) || is_key_pressed(KeyCode::A);
+        let right_just_pressed = is_key_pressed(KeyCode::Right) || is_key_pressed(KeyCode::D);
+        let up_just_pressed = is_key_pressed(KeyCode::Up) || is_key_pressed(KeyCode::W);
+        let down_just_pressed = is_key_pressed(KeyCode::Down) || is_key_pressed(KeyCode::S);
 
         if left_down {
             axis.x -= 1.0;
@@ -74,14 +86,16 @@ impl InputState {
         }
         Self {
             axis,
-            horizontal_just_pressed: is_key_pressed(KeyCode::Left)
-                || is_key_pressed(KeyCode::A)
-                || is_key_pressed(KeyCode::Right)
-                || is_key_pressed(KeyCode::D),
-            vertical_just_pressed: is_key_pressed(KeyCode::Up)
-                || is_key_pressed(KeyCode::W)
-                || is_key_pressed(KeyCode::Down)
-                || is_key_pressed(KeyCode::S),
+            left_down,
+            right_down,
+            up_down,
+            down_down,
+            left_just_pressed,
+            right_just_pressed,
+            up_just_pressed,
+            down_just_pressed,
+            horizontal_just_pressed: left_just_pressed || right_just_pressed,
+            vertical_just_pressed: up_just_pressed || down_just_pressed,
             slow: is_key_down(KeyCode::LeftShift) || is_key_down(KeyCode::RightShift),
             toggle_scroll: is_key_pressed(KeyCode::Space),
             toggle_timing_mode: is_key_pressed(KeyCode::Tab),
@@ -176,12 +190,26 @@ enum LastAxisPriority {
     Vertical,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum HorizontalPriority {
+    Left,
+    Right,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum VerticalPriority {
+    Up,
+    Down,
+}
+
 pub struct Game {
     player: Player,
     background: ScrollingBackground,
     timing_mode: TimingMode,
     diagonal_mode: DiagonalMode,
     last_axis_priority: LastAxisPriority,
+    last_horizontal_priority: HorizontalPriority,
+    last_vertical_priority: VerticalPriority,
     background_mode: BackgroundMode,
     target_refresh_hz: u32,
     player_speed_scale: f32,
@@ -202,6 +230,8 @@ impl Game {
             timing_mode: TimingMode::FrameStep,
             diagonal_mode: DiagonalMode::Raw,
             last_axis_priority: LastAxisPriority::Horizontal,
+            last_horizontal_priority: HorizontalPriority::Right,
+            last_vertical_priority: VerticalPriority::Down,
             background_mode: BackgroundMode::Texture,
             target_refresh_hz,
             player_speed_scale: 1.0,
@@ -230,7 +260,7 @@ impl Game {
         if input.toggle_background_mode {
             self.background_mode = self.background_mode.toggled();
         }
-        self.update_last_axis_priority(input);
+        self.update_input_priorities(input);
         if input.toggle_scroll {
             self.background.toggle();
         }
@@ -246,9 +276,11 @@ impl Game {
                 (self.player_speed_scale + PLAYER_SPEED_SCALE_STEP).min(PLAYER_SPEED_SCALE_MAX);
         }
         let frame_scale = frame_step_scale(self.target_refresh_hz);
+        let mut gameplay_input = input;
+        gameplay_input.axis = self.resolved_axis(input);
         self.background.update(self.timing_mode, dt, frame_scale);
         self.player.update(
-            input,
+            gameplay_input,
             PlayerMotion {
                 timing_mode: self.timing_mode,
                 diagonal_mode: self.diagonal_mode,
@@ -260,11 +292,54 @@ impl Game {
         );
     }
 
-    fn update_last_axis_priority(&mut self, input: InputState) {
+    fn update_input_priorities(&mut self, input: InputState) {
+        match (input.left_just_pressed, input.right_just_pressed) {
+            (true, false) => self.last_horizontal_priority = HorizontalPriority::Left,
+            (false, true) => self.last_horizontal_priority = HorizontalPriority::Right,
+            _ => {}
+        }
+
+        match (input.up_just_pressed, input.down_just_pressed) {
+            (true, false) => self.last_vertical_priority = VerticalPriority::Up,
+            (false, true) => self.last_vertical_priority = VerticalPriority::Down,
+            _ => {}
+        }
+
         match (input.horizontal_just_pressed, input.vertical_just_pressed) {
             (true, false) => self.last_axis_priority = LastAxisPriority::Horizontal,
             (false, true) => self.last_axis_priority = LastAxisPriority::Vertical,
             _ => {}
+        }
+    }
+
+    fn resolved_axis(&self, input: InputState) -> Vec2 {
+        vec2(
+            self.resolved_horizontal_axis(input),
+            self.resolved_vertical_axis(input),
+        )
+    }
+
+    fn resolved_horizontal_axis(&self, input: InputState) -> f32 {
+        match (input.left_down, input.right_down) {
+            (true, false) => -1.0,
+            (false, true) => 1.0,
+            (true, true) => match self.last_horizontal_priority {
+                HorizontalPriority::Left => -1.0,
+                HorizontalPriority::Right => 1.0,
+            },
+            (false, false) => 0.0,
+        }
+    }
+
+    fn resolved_vertical_axis(&self, input: InputState) -> f32 {
+        match (input.up_down, input.down_down) {
+            (true, false) => -1.0,
+            (false, true) => 1.0,
+            (true, true) => match self.last_vertical_priority {
+                VerticalPriority::Up => -1.0,
+                VerticalPriority::Down => 1.0,
+            },
+            (false, false) => 0.0,
         }
     }
 

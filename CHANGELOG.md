@@ -9,7 +9,7 @@ investigation milestones rather than stable library API changes.
 
 ### Added
 
-- `LAST` diagonal movement mode for last-pressed-axis priority.
+- `LAST` movement mode for last-pressed direction and axis priority.
 
 ## [0.1.0-experimental.1] - 2026-06-21
 
