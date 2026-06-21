@@ -24,6 +24,12 @@ Search terms: Macroquad frame pacing, Rust game loop, smooth 2D scrolling,
 sprite jitter, frame timing, 60Hz 120Hz game motion, manual frame pacer,
 `next_frame().await`, macOS Metal Macroquad timing.
 
+![Macroquad Smooth2D Lab HUD](docs/images/smooth120-hud.png)
+
+The screenshot shows the diagnostic HUD layout. The main result should be judged
+in motion by running the app and watching scrolling, sprite movement, frame
+timing, and spike markers.
+
 ## Who This Is For
 
 - Rust developers using Macroquad for 2D games.
