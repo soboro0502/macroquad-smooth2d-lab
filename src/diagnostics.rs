@@ -211,8 +211,11 @@ pub fn draw_hud(
         HUD_MARGIN,
         screen_width() - HUD_MARGIN * 2.0,
         HUD_BACKGROUND_HEIGHT,
-        Color::new(0.0, 0.0, 0.0, 0.55),
+        HUD_PANEL_COLOR,
     );
+    for index in 0..HUD_LINE_COUNT {
+        draw_hud_row_box(index);
+    }
     for (index, line) in cache.lines.iter().enumerate() {
         draw_text_ex(
             line,
@@ -225,6 +228,26 @@ pub fn draw_hud(
                 ..Default::default()
             },
         );
+    }
+}
+
+fn draw_hud_row_box(index: usize) {
+    let x = HUD_MARGIN + HUD_ROW_INSET_X;
+    let y = HUD_MARGIN + HUD_ROW_TOP_OFFSET + HUD_LINE_HEIGHT * index as f32;
+    let width = screen_width() - HUD_MARGIN * 2.0 - HUD_ROW_INSET_X * 2.0;
+    let (row_color, accent_color) = hud_row_colors(index);
+
+    draw_rectangle(x, y, width, HUD_ROW_HEIGHT, row_color);
+    draw_rectangle(x, y, HUD_ROW_ACCENT_WIDTH, HUD_ROW_HEIGHT, accent_color);
+}
+
+fn hud_row_colors(index: usize) -> (Color, Color) {
+    match index {
+        0 => (HUD_STATUS_ROW_COLOR, HUD_STATUS_ACCENT_COLOR),
+        1 => (HUD_SCENE_ROW_COLOR, HUD_SCENE_ACCENT_COLOR),
+        2 => (HUD_SYNC_ROW_COLOR, HUD_SYNC_ACCENT_COLOR),
+        3 => (HUD_FRAME_ROW_COLOR, HUD_FRAME_ACCENT_COLOR),
+        _ => (HUD_STABLE_ROW_COLOR, HUD_STABLE_ACCENT_COLOR),
     }
 }
 
