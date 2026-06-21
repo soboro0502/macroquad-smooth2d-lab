@@ -106,6 +106,46 @@ impl InputState {
             selected_background_step: selected_background_step(),
         }
     }
+
+    pub fn accumulate(&mut self, latest: Self) {
+        self.axis = latest.axis;
+        self.left_down = latest.left_down;
+        self.right_down = latest.right_down;
+        self.up_down = latest.up_down;
+        self.down_down = latest.down_down;
+        self.left_just_pressed |= latest.left_just_pressed;
+        self.right_just_pressed |= latest.right_just_pressed;
+        self.up_just_pressed |= latest.up_just_pressed;
+        self.down_just_pressed |= latest.down_just_pressed;
+        self.horizontal_just_pressed |= latest.horizontal_just_pressed;
+        self.vertical_just_pressed |= latest.vertical_just_pressed;
+        self.slow = latest.slow;
+        self.toggle_scroll |= latest.toggle_scroll;
+        self.toggle_timing_mode |= latest.toggle_timing_mode;
+        self.toggle_diagonal_mode |= latest.toggle_diagonal_mode;
+        self.toggle_background_mode |= latest.toggle_background_mode;
+        self.increase_player_speed |= latest.increase_player_speed;
+        self.decrease_player_speed |= latest.decrease_player_speed;
+        self.selected_background_step = latest
+            .selected_background_step
+            .or(self.selected_background_step);
+    }
+
+    pub fn clear_edges(&mut self) {
+        self.left_just_pressed = false;
+        self.right_just_pressed = false;
+        self.up_just_pressed = false;
+        self.down_just_pressed = false;
+        self.horizontal_just_pressed = false;
+        self.vertical_just_pressed = false;
+        self.toggle_scroll = false;
+        self.toggle_timing_mode = false;
+        self.toggle_diagonal_mode = false;
+        self.toggle_background_mode = false;
+        self.increase_player_speed = false;
+        self.decrease_player_speed = false;
+        self.selected_background_step = None;
+    }
 }
 
 fn selected_background_step() -> Option<f32> {
@@ -257,6 +297,14 @@ impl Game {
     }
 
     pub fn update(&mut self, input: InputState, dt: f32) {
+        self.update_with_frame_scale(input, dt, frame_step_scale(self.target_refresh_hz));
+    }
+
+    pub fn fixed60_update(&mut self, input: InputState) {
+        self.update_with_frame_scale(input, FIXED_LOGIC_DT, fixed_logic_frame_scale());
+    }
+
+    fn update_with_frame_scale(&mut self, input: InputState, dt: f32, frame_scale: f32) {
         if input.toggle_timing_mode {
             self.timing_mode = self.timing_mode.toggled();
         }
@@ -281,7 +329,6 @@ impl Game {
             self.player_speed_scale =
                 (self.player_speed_scale + PLAYER_SPEED_SCALE_STEP).min(PLAYER_SPEED_SCALE_MAX);
         }
-        let frame_scale = frame_step_scale(self.target_refresh_hz);
         let mut gameplay_input = input;
         gameplay_input.axis = self.resolved_axis(input);
         self.background.update(self.timing_mode, dt, frame_scale);
@@ -350,13 +397,18 @@ impl Game {
     }
 
     pub fn draw(&self, assets: &Assets) {
+        self.draw_interpolated(assets, 1.0);
+    }
+
+    pub fn draw_interpolated(&self, assets: &Assets, alpha: f32) {
         self.background.draw(
             &assets.background,
             &assets.probe_background,
             self.background_mode,
+            alpha,
         );
         self.stress_sprites.draw(&assets.player);
-        self.player.draw(&assets.player);
+        self.player.draw(&assets.player, alpha);
     }
 
     pub fn scroll_enabled(&self) -> bool {
@@ -418,6 +470,7 @@ impl BackgroundMode {
 }
 
 struct Player {
+    previous_position: Vec2,
     position: Vec2,
     source_size: Vec2,
     draw_size: Vec2,
@@ -437,6 +490,7 @@ struct PlayerMotion {
 impl Player {
     fn new(position: Vec2, source_size: Vec2) -> Self {
         Self {
+            previous_position: position,
             position,
             source_size,
             draw_size: source_size * PLAYER_DRAW_SCALE,
@@ -446,6 +500,7 @@ impl Player {
     }
 
     fn update(&mut self, input: InputState, motion: PlayerMotion, dt: f32) {
+        self.previous_position = self.position;
         let speed = if input.slow {
             PLAYER_SLOW_SPEED
         } else {
@@ -494,7 +549,10 @@ impl Player {
         }
     }
 
-    fn draw(&self, texture: &Texture2D) {
+    fn draw(&self, texture: &Texture2D, alpha: f32) {
+        let position = self
+            .previous_position
+            .lerp(self.position, alpha.clamp(0.0, 1.0));
         let source = Rect::new(
             self.source_size.x * self.current_frame as f32,
             0.0,
@@ -504,8 +562,8 @@ impl Player {
 
         draw_texture_ex(
             texture,
-            self.position.x,
-            self.position.y,
+            position.x,
+            position.y,
             WHITE,
             DrawTextureParams {
                 source: Some(source),
@@ -586,6 +644,7 @@ impl StressSprites {
 }
 
 struct ScrollingBackground {
+    previous_offset: f32,
     offset: f32,
     last_delta: f32,
     enabled: bool,
@@ -595,6 +654,7 @@ struct ScrollingBackground {
 impl ScrollingBackground {
     fn new() -> Self {
         Self {
+            previous_offset: 0.0,
             offset: 0.0,
             last_delta: 0.0,
             enabled: true,
@@ -619,6 +679,7 @@ impl ScrollingBackground {
     }
 
     fn update(&mut self, timing_mode: TimingMode, dt: f32, frame_scale: f32) {
+        self.previous_offset = self.offset;
         self.last_delta = 0.0;
         if self.enabled {
             let distance = match timing_mode {
@@ -630,19 +691,28 @@ impl ScrollingBackground {
         }
     }
 
-    fn draw(&self, texture: &Texture2D, probe_texture: &Texture2D, mode: BackgroundMode) {
+    fn draw(
+        &self,
+        texture: &Texture2D,
+        probe_texture: &Texture2D,
+        mode: BackgroundMode,
+        alpha: f32,
+    ) {
+        let offset = self
+            .previous_offset
+            .lerp(self.offset, alpha.clamp(0.0, 1.0));
         match mode {
-            BackgroundMode::Texture => self.draw_texture_tiles(texture),
-            BackgroundMode::ProbeTexture => self.draw_texture_tiles(probe_texture),
-            BackgroundMode::Stripes => self.draw_stripes(),
+            BackgroundMode::Texture => self.draw_texture_tiles(texture, offset),
+            BackgroundMode::ProbeTexture => self.draw_texture_tiles(probe_texture, offset),
+            BackgroundMode::Stripes => self.draw_stripes(offset),
         }
     }
 
-    fn draw_texture_tiles(&self, texture: &Texture2D) {
+    fn draw_texture_tiles(&self, texture: &Texture2D, offset: f32) {
         let tile_width = texture.width() * BACKGROUND_DRAW_SCALE;
         let tile_height = texture.height() * BACKGROUND_DRAW_SCALE;
         let tile_size = vec2(tile_width, tile_height);
-        let offset = self.offset.rem_euclid(tile_height);
+        let offset = offset.rem_euclid(tile_height);
         if tile_width >= screen_width() && tile_height >= screen_height() {
             self.draw_large_texture_wrap(texture, tile_width, tile_height, offset);
             return;
@@ -689,12 +759,12 @@ impl ScrollingBackground {
         }
     }
 
-    fn draw_stripes(&self) {
+    fn draw_stripes(&self, offset: f32) {
         self.draw_fixed_guides();
 
         let cycle = PROBE_BAND_HEIGHT + PROBE_BAND_GAP;
         let rows = (screen_height() / cycle).ceil() as i32 + 2;
-        let offset = self.offset.rem_euclid(cycle);
+        let offset = offset.rem_euclid(cycle);
 
         for row in -1..rows {
             let y = row as f32 * cycle + offset;
@@ -754,6 +824,10 @@ fn player_frame_size(texture: &Texture2D) -> Vec2 {
 
 fn frame_step_scale(target_refresh_hz: u32) -> f32 {
     REFERENCE_GAME_HZ / target_refresh_hz.max(1) as f32
+}
+
+fn fixed_logic_frame_scale() -> f32 {
+    REFERENCE_GAME_HZ / FIXED_LOGIC_HZ
 }
 
 fn target_frame_for_axis(axis_x: f32) -> usize {

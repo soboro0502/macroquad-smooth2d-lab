@@ -86,6 +86,18 @@ impl FramePacer {
         }
     }
 
+    pub fn sleep_for(&self, seconds: f64) -> PacerSample {
+        let total_start = get_time();
+        let wait_start = get_time();
+        thread::sleep(Duration::from_secs_f64(seconds.max(0.0)));
+        let os_wait_secs = get_time() - wait_start;
+        PacerSample {
+            os_wait_secs,
+            spin_secs: 0.0,
+            total_wait_secs: get_time() - total_start,
+        }
+    }
+
     pub fn mach_wait_spin_until(
         &self,
         frame_start: f64,

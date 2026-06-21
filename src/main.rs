@@ -2,7 +2,7 @@ mod app_options;
 mod diagnostics;
 mod game;
 
-use app_options::{AppOptions, PacerMode};
+use app_options::{AppOptions, LoopMode, PacerMode};
 use diagnostics::{
     diagnostic_verdict, draw_frame_marker, draw_hud, fps_from_dt, frame_marker, log_frame_marker,
     warm_hud_font_cache, FrameMarker, HudState, HudTextCache,
@@ -137,6 +137,8 @@ async fn main() {
     let mut last_pacer_sample = PacerSample::default();
     let mut last_next_frame_secs = 0.0;
     let mut previous_loop_time = get_time() - f64::from(target_dt);
+    let mut fixed_accumulator = 0.0_f32;
+    let mut pending_fixed_input = InputState::default();
     let app_started_at = get_time();
     let mut hud_font_cache_warmed = false;
 
@@ -214,10 +216,42 @@ async fn main() {
         }
         if !clear_only {
             if !startup_warming {
-                let input = InputState::read();
-                game.update(input, dt);
+                match app_options.loop_mode {
+                    LoopMode::RenderStep => {
+                        let input = InputState::read();
+                        game.update(input, dt);
+                    }
+                    LoopMode::Fixed60Draw => {
+                        pending_fixed_input.accumulate(InputState::read());
+                        fixed_accumulator =
+                            (fixed_accumulator + dt).min(MAX_ACCUMULATED_FIXED_TIME_SECS);
+
+                        let mut fixed_steps = 0;
+                        while fixed_accumulator >= FIXED_LOGIC_DT
+                            && fixed_steps < MAX_FIXED_STEPS_PER_FRAME
+                        {
+                            game.fixed60_update(pending_fixed_input);
+                            pending_fixed_input.clear_edges();
+                            fixed_accumulator -= FIXED_LOGIC_DT;
+                            fixed_steps += 1;
+                        }
+
+                        if fixed_accumulator >= FIXED_LOGIC_DT {
+                            fixed_accumulator = 0.0;
+                        }
+                    }
+                }
+            } else {
+                fixed_accumulator = 0.0;
+                pending_fixed_input = InputState::default();
             }
-            game.draw(&assets);
+            match app_options.loop_mode {
+                LoopMode::RenderStep => game.draw(&assets),
+                LoopMode::Fixed60Draw => {
+                    let alpha = (fixed_accumulator / FIXED_LOGIC_DT).clamp(0.0, 1.0);
+                    game.draw_interpolated(&assets, alpha);
+                }
+            }
         }
         if record_frame {
             if let Some(session) = diag_session.as_mut() {
@@ -238,6 +272,7 @@ async fn main() {
                 &stats,
                 HudState {
                     profile: app_options.profile,
+                    loop_mode: app_options.loop_mode,
                     scroll_enabled: game.scroll_enabled(),
                     timing_mode: game.timing_mode(),
                     diagonal_mode: game.diagonal_mode(),
@@ -294,6 +329,7 @@ async fn main() {
                 PacerMode::Spin => {
                     frame_pacer.spin_until(frame_start, app_options.target_refresh_hz)
                 }
+                PacerMode::PresentSleep => frame_pacer.sleep_for(PACER_PRESENT_SLEEP_SECS),
             }
         } else {
             PacerSample::default()

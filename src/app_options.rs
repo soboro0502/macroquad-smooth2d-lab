@@ -16,10 +16,33 @@ pub struct AppOptions {
     pub pacer_sleep_threshold_secs: f64,
     pub time_constraint_enabled: bool,
     pub hud_visible: bool,
+    pub loop_mode: LoopMode,
     pub timing_mode: TimingMode,
     pub background_mode: BackgroundMode,
     pub background_frame_step: f32,
     pub stress_sprite_count: usize,
+}
+
+#[derive(Clone, Copy)]
+pub enum LoopMode {
+    RenderStep,
+    Fixed60Draw,
+}
+
+impl LoopMode {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::RenderStep => "RSTEP",
+            Self::Fixed60Draw => "FIX60",
+        }
+    }
+
+    pub fn logic_hz(self, target_refresh_hz: u32) -> u32 {
+        match self {
+            Self::RenderStep => target_refresh_hz,
+            Self::Fixed60Draw => FIXED_LOGIC_HZ as u32,
+        }
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -59,6 +82,7 @@ pub enum PacerMode {
     MachSpin,
     SleepSpin,
     Spin,
+    PresentSleep,
 }
 
 impl PacerMode {
@@ -67,6 +91,7 @@ impl PacerMode {
             Self::MachSpin => "MACH",
             Self::SleepSpin => "SLEEP",
             Self::Spin => "SPIN",
+            Self::PresentSleep => "PSLEEP",
         }
     }
 }
@@ -82,12 +107,13 @@ impl AppOptions {
             diag_warmup_seconds: DEFAULT_DIAG_WARMUP_SECONDS,
             clear_only: false,
             manual_pacer_enabled: DEFAULT_MANUAL_PACER_ENABLED,
-            pacer_mode: PacerMode::MachSpin,
+            pacer_mode: PacerMode::PresentSleep,
             pacer_spin_margin_secs: PACER_BALANCED_SPIN_MARGIN_SECS,
             pacer_sleep_margin_secs: PACER_SLEEP_MARGIN_SECS,
             pacer_sleep_threshold_secs: PACER_SLEEP_THRESHOLD_SECS,
             time_constraint_enabled: DEFAULT_TIME_CONSTRAINT_ENABLED,
             hud_visible: false,
+            loop_mode: LoopMode::Fixed60Draw,
             timing_mode: TimingMode::FrameStep,
             background_mode: BackgroundMode::Texture,
             background_frame_step: DEFAULT_BACKGROUND_STEP,
@@ -182,6 +208,10 @@ impl AppOptions {
                     options.manual_pacer_enabled = true;
                     options.pacer_mode = PacerMode::SleepSpin;
                 }
+                "--present-sleep-pacer" | "--post-frame-sleep" => {
+                    options.manual_pacer_enabled = true;
+                    options.pacer_mode = PacerMode::PresentSleep;
+                }
                 "--pacer-margin-ms" => {
                     let margin_secs = args
                         .next()
@@ -208,6 +238,12 @@ impl AppOptions {
                 }
                 "--hud" => {
                     options.hud_visible = true;
+                }
+                "--render-step" | "--display-step-movement" => {
+                    options.loop_mode = LoopMode::RenderStep;
+                }
+                "--logic60-draw" | "--fixed60-render" => {
+                    options.loop_mode = LoopMode::Fixed60Draw;
                 }
                 "--visual-check" => {
                     options.timing_mode = TimingMode::FrameStep;

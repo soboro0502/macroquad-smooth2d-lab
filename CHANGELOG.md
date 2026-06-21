@@ -10,10 +10,22 @@ investigation milestones rather than stable library API changes.
 ### Added
 
 - Optional `--stress-sprites <count>` draw-load mode for sprite throughput tests.
+- Explicit `--present-sleep-pacer` / `--post-frame-sleep` aliases for the
+  default post-frame sleep pacer.
+- Explicit `--logic60-draw` / `--fixed60-render` aliases for the default fixed
+  60Hz game updates with interpolated display-rate rendering.
+- Optional `--render-step` / `--display-step-movement` mode for the previous
+  render-step movement path.
 
 ### Changed
 
 - Changed the default diagonal movement mode from `RAW` to `NORM`.
+- Changed the default runtime architecture to fixed 60Hz logic with
+  display-rate interpolated rendering and post-frame sleep pacing.
+
+### Documentation
+
+- Added a post-frame sleep pacer comparison note.
 
 ## [0.1.1] - 2026-06-21
 

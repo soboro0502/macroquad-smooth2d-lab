@@ -3,6 +3,11 @@
 Macroquad Smooth2D Lab is a Rust/Macroquad frame pacing and smooth 2D motion
 reference project.
 
+It does not claim to identify a single universal root cause of frame pacing
+jitter. Treat it as a practical investigation lab with reproducible diagnostics,
+trade-off notes, and measured configurations that worked in the author's
+environment.
+
 ## Experimental Status and Disclaimer
 
 This repository is an experimental test version for investigation, measurement,
@@ -25,6 +30,12 @@ game reports 60 FPS or 120 FPS:
 - 60Hz vs 120Hz movement differences
 
 The project favors measured frame timing over average FPS.
+
+The default app architecture is fixed 60Hz game logic with display-rate
+interpolated rendering and post-frame sleep pacing. The equivalent explicit
+command is `./run.sh --profile smooth120 --logic60-draw --present-sleep-pacer`.
+The older display-rate render-step movement path is still available as
+`--render-step` / `--display-step-movement` for comparison.
 
 ## Current Scope
 
@@ -66,6 +77,7 @@ should be treated as new test targets.
 
 - `README.md`: user-facing overview, commands, controls, and findings
 - `docs/frame_pacing_asset.md`: detailed frame pacing investigation notes
+- `docs/present_sleep_pacer.md`: default post-frame sleep pacer notes
 - `src/lib.rs`: experimental reusable library entry point
 - `src/main.rs`: application loop and measurement orchestration
 - `src/frame_pacer.rs`: manual frame pacing helpers

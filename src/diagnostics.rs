@@ -4,7 +4,7 @@ use macroquad_smooth2d_lab::frame_log::FrameLog;
 use macroquad_smooth2d_lab::frame_pacer::PacerSample;
 use macroquad_smooth2d_lab::frame_stats::{FrameStats, FrameStatsSnapshot};
 
-use crate::app_options::{PacerMode, RuntimeProfile};
+use crate::app_options::{LoopMode, PacerMode, RuntimeProfile};
 use crate::game::{Assets, BackgroundMode, DiagonalMode, TimingMode};
 
 pub fn fps_from_dt(dt: f32) -> i32 {
@@ -88,6 +88,7 @@ pub fn draw_frame_marker(frame_marker: FrameMarker) {
 #[derive(Clone, Copy)]
 pub struct HudState {
     pub profile: RuntimeProfile,
+    pub loop_mode: LoopMode,
     pub scroll_enabled: bool,
     pub timing_mode: TimingMode,
     pub diagonal_mode: DiagonalMode,
@@ -135,6 +136,7 @@ impl HudTextCache {
         let margin_secs = match state.pacer_mode {
             PacerMode::SleepSpin => state.pacer_sleep_margin_secs,
             PacerMode::MachSpin | PacerMode::Spin => state.pacer_spin_margin_secs,
+            PacerMode::PresentSleep => PACER_PRESENT_SLEEP_SECS,
         };
         let log = if state.frame_log_enabled { "ON" } else { "OFF" };
         let quality = diagnostic_verdict(snapshot, 1.0 / state.target_refresh_hz as f32);
@@ -151,7 +153,8 @@ impl HudTextCache {
             log,
         );
         self.lines[1] = format!(
-            "SCENE  MODE {} | DIAG {} | DRAW {} | BG {} | STEP {:.0}px | BGD {:>5.2} | PVEL {:.2}x | SPR {}",
+            "SCENE  LOOP {} | MODE {} | DIAG {} | DRAW {} | BG {} | STEP {:.0}px | BGD {:>5.2} | PVEL {:.2}x | SPR {}",
+            state.loop_mode.label(),
             state.timing_mode.label(),
             state.diagonal_mode.label(),
             state.background_mode.label(),
@@ -169,10 +172,10 @@ impl HudTextCache {
             state.pacer_sample.total_wait_ms(),
         );
         self.lines[3] = format!(
-            "FRAME  hz {:>3} | fps {:>3}/{:>5.1} | ms last {:>5.2} avg {:>5.2} | p95 {:>5.2} p99 {:>5.2}",
-            state.target_refresh_hz,
+            "FRAME  DRAW {:>3}/{:>5.1}fps | LOGIC {:>3}Hz | ms last {:>5.2} avg {:>5.2} | p95 {:>5.2} p99 {:>5.2}",
             snapshot.fps,
             snapshot.avg_fps,
+            state.loop_mode.logic_hz(state.target_refresh_hz),
             snapshot.last_ms,
             snapshot.avg_ms,
             snapshot.p95_ms,
@@ -255,7 +258,7 @@ fn hud_row_colors(index: usize) -> (Color, Color) {
 
 pub fn warm_hud_font_cache(assets: &Assets) {
     draw_text_ex(
-        "STATUS SCENE SYNC FRAME STABLE Q PASS WARN WAIT LOAD CLEAR FULL PACE MACH SLEEP SPIN AUTO LOG ON OFF CPU MODE DIAG NORM RAW LAST DRAW TEX PROBE BANDS STEP BGD PVEL SPR next total ms slow spk BG 0123456789.-/%|",
+        "STATUS SCENE SYNC FRAME STABLE Q PASS WARN WAIT LOAD CLEAR FULL PACE MACH SLEEP SPIN PSLEEP AUTO LOG ON OFF CPU LOOP RSTEP FIX60 MODE DIAG NORM RAW LAST DRAW LOGIC fps Hz TEX PROBE BANDS STEP BGD PVEL SPR next total ms slow spk BG 0123456789.-/%|",
         0.0,
         0.0,
         TextParams {

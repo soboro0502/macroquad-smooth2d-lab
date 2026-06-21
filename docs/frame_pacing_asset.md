@@ -1,6 +1,6 @@
 # Macroquad Smooth2D Lab フレームペーシング資産
 
-このプロジェクトでは、Macroquad/macOS で 60Hz / 120Hz のフレーム間隔を安定させるために、更新処理や座標補間ではなく「最終的なフレーム提出タイミング」を主対象として調整した。
+このプロジェクトでは、Macroquad/macOS で 2D スクロールとスプライト移動を滑らかに見せるために、固定ロジック、描画補間、フレーム提出タイミングを分けて検証した。
 
 ## 実験版としての位置づけと免責
 
@@ -10,13 +10,14 @@
 
 ## 現在の安定デフォルト
 
-- pacer: Mach wait + balanced final spin
+- loop: fixed 60Hz logic + display-rate interpolated rendering
+- pacer: post-frame sleep
 - macOS thread QoS: `QOS_CLASS_USER_INTERACTIVE`
 - macOS thread policy: `THREAD_TIME_CONSTRAINT_POLICY`
 - default profile: `smooth120`
-- stable profile: `stable60`
+- comparison profile: `stable60`
 - default background: `assets/br_01.png`
-- diagnostics: `next_frame`, OS wait, spin wait, and total pacer wait are measured separately
+- diagnostics: draw FPS, logic Hz, `next_frame`, OS wait, spin wait, and total pacer wait are measured separately
 - 診断 PASS 条件: `max_ms <= target_ms + 0.7`
 
 通常起動でこの構成が有効になる。
@@ -24,71 +25,58 @@
 ## 再現コマンド
 
 ```bash
-./run.sh --diag-seconds 120 --diag-warmup-seconds 5 --visual-check --profile smooth120
-./run.sh --diag-seconds 60 --diag-warmup-seconds 5 --visual-check --profile stable60 --bg-step 2
+./run.sh --diag-seconds 60 --diag-warmup-seconds 5 --visual-check --hud
+./run.sh --diag-seconds 60 --diag-warmup-seconds 5 --visual-check --hud --render-step
 ```
 
-`--visual-check` はデフォルト背景とスクロールの測定に集中する。画面上のHUDを重ねて確認したい場合は `--hud` を追加する。
+`--visual-check` はデフォルト背景とスクロールの測定に集中する。画面上のHUDでは DRAW FPS と LOGIC Hz を分けて見る。
 
-120Hz 診断結果:
+現行デフォルトの短時間診断結果:
 
 ```text
 verdict=WARN
-avg_ms=8.362
-p95_ms=8.334
-p99_ms=8.469
-range_ms=8.334-24.829
-sd_ms=0.459
-slow_pct=0.4
+avg_fps=119.9
+avg_ms=8.342
+p95_ms=9.308
+p99_ms=9.704
+range_ms=3.528-18.580
+sd_ms=0.721
+slow_pct=0.5
 spikes=1
-cpu=55.5%
-bg_delta range=2.000-2.000
-pacer_spin_ms avg=2.221 range=0.000-4.499
-pacer_os_wait_ms avg=0.002 range=0.000-0.266
-next_frame_ms avg=6.045 range=3.519-24.679
+cpu=13.8%
+bg_delta avg=4.000
+pacer_spin_ms avg=0.000
+pacer_os_wait_ms avg=1.016
+next_frame_ms avg=7.212
 ```
 
-120Hz では `next_frame().await` がフレーム境界待ちの大部分を消費することがある。この場合、manual pacer の `mach_wait_until` はほぼ動かず、`next_frame` の戻り遅れがそのまま slow frame になる。
-
-60Hz 確認済み結果:
-
-```text
-verdict=PASS
-avg_ms=16.667
-p95_ms=16.667
-p99_ms=16.667
-range_ms=16.667-16.670
-sd_ms=0.000
-slow_pct=0.0
-spikes=0
-cpu=30.3%
-bg_delta range=4.000-4.000
-pacer_spin_ms avg=4.490 range=4.448-4.497
-pacer_os_wait_ms avg=11.313 range=9.465-11.504
-next_frame_ms avg=0.756 range=0.602-2.595
-```
-
-60Hz では、120Hz基準の frame-step 量を `120 / target_hz` で補正する。デフォルト背景の 2px/frame は 60Hz では 4px/frame になり、秒間スクロール量は同じになる。
-
-60Hz では `next_frame().await` の待ち時間が短く、`mach_wait_until` と spin の役割分担が設計通りに出ている。
+DRAW FPS は OS、VSync、`next_frame().await`、モニター側都合で揺れてよい。固定すべきなのは LOGIC 60Hz と、描画補間に渡す状態である。
 
 ## プロファイル設計
 
-このプロジェクトでは「本命を1つに決める」のではなく、用途別プロファイルとして整理する。
+このプロジェクトでは、標準構成を1つに決め、旧方式を比較用に残す。
+
+| mode | 目的 |
+| --- | --- |
+| default / `--logic60-draw` | fixed 60Hz logic + display-rate interpolation |
+| `--present-sleep-pacer` | post-frame sleep pacer。現在のデフォルト |
+| `--render-step` | 旧render-step移動の比較用 |
+
+`smooth120` / `stable60` は target Hz の比較用として残す。
 
 | profile | target | 目的 |
 | --- | ---: | --- |
-| `stable60` | 60Hz | 安定性優先。現時点のリリース基準候補。 |
-| `smooth120` | 120Hz | 自機移動の気持ちよさ優先。present境界の監視が必要。 |
+| `smooth120` | 120Hz | 現在のデフォルト表示ターゲット |
+| `stable60` | 60Hz | 60Hz比較ターゲット |
 
 プロファイルは `--profile stable60` / `--profile smooth120` で選ぶ。`--target-hz` は低レベル検証用として残す。
 
-ゲーム速度は `REFERENCE_GAME_HZ=120` を基準にする。frame-step mode では `120 / target_hz` で1フレームあたりの移動量を補正し、60Hzと120Hzで秒間速度が変わらないようにする。
+通常のデフォルトではロジックは `FIXED_LOGIC_HZ=60` を基準にする。旧 `--render-step` では `REFERENCE_GAME_HZ=120` を基準にして、`120 / target_hz` で1フレームあたりの移動量を補正する。
 
 例:
 
-- 背景 `2px/frame @ 120Hz` は、60Hzでは `4px/frame`
-- 自機 `4px/frame @ 120Hz` は、60Hzでは `8px/frame`
+- デフォルト背景は fixed 60Hz logic で `4px/logic step`
+- 旧render-stepでは背景 `2px/frame @ 120Hz`、60Hzでは `4px/frame`
 - `Z/X` の player speed scale は、この基準移動量に倍率を掛ける
 
 ## 設定できるもの
@@ -97,8 +85,8 @@ next_frame_ms avg=0.756 range=0.602-2.595
 
 | option | 内容 |
 | --- | --- |
-| `--profile stable60` | 60Hz安定プロファイル |
-| `--profile smooth120` | 120Hz滑らかさプロファイル |
+| `--profile stable60` | 60Hz比較ターゲット |
+| `--profile smooth120` | デフォルト表示ターゲット |
 | `--target-hz <hz>` | 低レベルtarget Hz指定 |
 | `--hud` | HUD表示 |
 | `--visual-check` | デフォルト背景とframe-step modeで視覚確認 |
@@ -120,6 +108,9 @@ next_frame_ms avg=0.756 range=0.602-2.595
 | `--eco-pacer` | low CPU比較用 |
 | `--sleep-pacer` | sleep + spin比較用 |
 | `--spin-pacer` | pure spin比較用 |
+| `--present-sleep-pacer` / `--post-frame-sleep` | post-frame sleep。現在のデフォルト |
+| `--logic60-draw` / `--fixed60-render` | ロジック60Hz固定 + 描画補間。現在のデフォルト |
+| `--render-step` / `--display-step-movement` | 旧render-step移動の比較用 |
 | `--pacer-margin-ms <ms>` | spin margin指定 |
 | `--pacer-sleep-threshold-ms <ms>` | sleep-spin閾値 |
 | `--time-constraint` | macOS time constraint有効 |

@@ -4,6 +4,15 @@ Macroquad Smooth2D Lab is a Macroquad frame pacing laboratory for arcade-quality
 
 It is not trying to maximize average FPS. The goal is to make frame intervals, scrolling, and sprite movement observable, repeatable, and tunable enough to become a reusable game timing library.
 
+This repository does not claim to identify a single universal root cause of
+frame pacing jitter. It is a practical investigation lab with reproducible
+diagnostics, trade-off notes, and measured configurations that worked in the
+author's environment.
+
+It is written from the perspective of a developer who struggled with visible
+2D jitter and wanted to leave a concrete test case for others to inspect,
+modify, and compare against their own machines.
+
 ## Experimental Status and Disclaimer
 
 This project is an experimental test version. It is provided for investigation,
@@ -60,6 +69,10 @@ The current value is the measured frame pacing loop, the diagnostic HUD, the
 The internal module layout and public API may change without notice while the
 project moves toward a library.
 
+For the post-frame sleep pacer, see
+[`docs/present_sleep_pacer.md`](docs/present_sleep_pacer.md). It is the default
+pacing strategy for the runnable lab app.
+
 ## Known Limitations
 
 - This is not a general-purpose game engine.
@@ -96,16 +109,32 @@ new test targets.
 ## Quick Start
 
 ```bash
-./run.sh --profile stable60
-./run.sh --profile smooth120
+./run.sh
+./run.sh --hud
 ```
 
-Current profiles:
+Default architecture:
+
+| Layer | Default |
+| --- | --- |
+| Game logic | fixed 60Hz |
+| Rendering | every display frame |
+| Motion display | interpolation between fixed logic states |
+| Pacing | post-frame sleep |
+| Default profile | `smooth120` |
+
+The explicit equivalent is:
+
+```bash
+./run.sh --profile smooth120 --logic60-draw --present-sleep-pacer
+```
+
+Profiles:
 
 | Profile | Target | Purpose |
 | --- | ---: | --- |
-| `stable60` | 60 Hz | Stability-first profile. Best current baseline for shipping and long observation. |
-| `smooth120` | 120 Hz | Motion-quality profile. Player movement feels better, but present timing must be watched. |
+| `smooth120` | 120 Hz | Default display-rate target for the lab app. |
+| `stable60` | 60 Hz | 60Hz comparison target. With the default present-sleep pacer, display timing can still follow the monitor. |
 
 The default `./run.sh` uses `smooth120`.
 
@@ -230,6 +259,8 @@ Visual inspection:
 ### Pacer Modes
 
 ```bash
+./run.sh --present-sleep-pacer
+./run.sh --post-frame-sleep
 ./run.sh --mach-pacer
 ./run.sh --balanced-pacer
 ./run.sh --precision-pacer
@@ -237,6 +268,24 @@ Visual inspection:
 ./run.sh --sleep-pacer
 ./run.sh --spin-pacer
 ```
+
+`--present-sleep-pacer` is the default pacer. The spin-based pacers are kept as
+comparison tools.
+
+### Loop Modes
+
+```bash
+./run.sh --logic60-draw
+./run.sh --fixed60-render
+./run.sh --render-step
+./run.sh --display-step-movement
+./run.sh --hud
+```
+
+`--logic60-draw` keeps game updates on a fixed 60Hz step and renders every
+display frame with interpolation. This is the default loop mode. The older
+render-step movement path is kept behind `--render-step` /
+`--display-step-movement` for comparison.
 
 Manual tuning:
 

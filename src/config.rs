@@ -5,6 +5,10 @@ pub const WINDOW_TITLE: &str = "Macroquad Smooth2D Lab";
 pub const WINDOW_WIDTH: i32 = 1920;
 pub const WINDOW_HEIGHT: i32 = 1080;
 pub const REFERENCE_GAME_HZ: f32 = 120.0;
+pub const FIXED_LOGIC_HZ: f32 = 60.0;
+pub const FIXED_LOGIC_DT: f32 = 1.0 / FIXED_LOGIC_HZ;
+pub const MAX_FIXED_STEPS_PER_FRAME: usize = 4;
+pub const MAX_ACCUMULATED_FIXED_TIME_SECS: f32 = 0.25;
 pub const DEFAULT_TARGET_REFRESH_HZ_U32: u32 = 120;
 pub const DEFAULT_STARTUP_WARMUP_SECONDS: f64 = 1.0;
 
@@ -84,6 +88,7 @@ pub const PACER_SLEEP_MARGIN_SECS: f64 = 0.0014;
 pub const PACER_ECO_SPIN_MARGIN_SECS: f64 = 0.0020;
 pub const PACER_BALANCED_SPIN_MARGIN_SECS: f64 = 0.0030;
 pub const PACER_PRECISION_SPIN_MARGIN_SECS: f64 = 0.0050;
+pub const PACER_PRESENT_SLEEP_SECS: f64 = 0.0010;
 
 // Colors.
 pub const CLEAR_COLOR: Color = Color::new(0.02, 0.025, 0.035, 1.0);
