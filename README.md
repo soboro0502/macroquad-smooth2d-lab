@@ -127,7 +127,7 @@ The default `./run.sh` uses `smooth120`.
 | `X` | Increase player speed scale |
 | Space | Toggle background scroll |
 | `Tab` | Toggle timing mode: frame-step / delta-time |
-| `V` | Toggle diagonal movement mode: normalized / raw |
+| `V` | Toggle diagonal movement mode: raw default / normalized |
 | `G` | Change background diagnostic mode |
 | `1` / `2` / `3` / `4` | Set background frame-step amount |
 | `H` | Toggle HUD |

@@ -173,7 +173,7 @@ impl Game {
             player: Player::new(start, source_size),
             background: ScrollingBackground::new(),
             timing_mode: TimingMode::FrameStep,
-            diagonal_mode: DiagonalMode::Normalized,
+            diagonal_mode: DiagonalMode::Raw,
             background_mode: BackgroundMode::Texture,
             target_refresh_hz,
             player_speed_scale: 1.0,
